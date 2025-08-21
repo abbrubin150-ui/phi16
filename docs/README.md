@@ -9,3 +9,7 @@
 - Math: `spec/math/` — 3⊥+1 Monoid, DIA formal
 - IR: `spec/ir/` — NAND-IR semantics
 - Crypto: `spec/crypto/` — Ledger Hash-Chain
+
+- B1 מדריך תפעול: B1_ops_manual.md
+- B2 ספר נהלים: B2_playbook.md
+- NAND-only יישומי: NAND_only_practical.md
