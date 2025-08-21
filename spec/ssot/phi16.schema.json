@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Phi16 SSOT Schema",
+  "type": "object",
+  "properties": {
+    "N": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "EPS": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "tau": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Allowable DIA drop before SAFE trigger"
+    },
+    "weights": {
+      "type": "object",
+      "properties": {
+        "w_g": {"type": "number", "minimum": 0, "maximum": 1},
+        "w_i": {"type": "number", "minimum": 0, "maximum": 1},
+        "w_r": {"type": "number", "minimum": 0, "maximum": 1}
+      },
+      "required": ["w_g", "w_i", "w_r"],
+      "additionalProperties": false,
+      "description": "Weights for graph/info/replay components; should sum to 1"
+    },
+    "states": {
+      "type": "array",
+      "items": {"enum": ["RUN", "HOLD", "SAFE"]},
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "invariants": {
+      "type": "array",
+      "items": {"type": "string"},
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "ports": {
+      "type": "array",
+      "items": {"type": "string"},
+      "minItems": 1,
+      "uniqueItems": true
+    }
+  },
+  "required": ["N", "EPS", "tau", "weights", "states", "invariants", "ports"],
+  "additionalProperties": false
+}

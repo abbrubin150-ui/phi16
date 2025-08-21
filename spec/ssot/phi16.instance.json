@@ -1,0 +1,14 @@
+{
+  "N": 16,
+  "EPS": 0,
+  "tau": 0.0,
+  "weights": {"w_g": 0.5, "w_i": 0.3, "w_r": 0.2},
+  "states": ["RUN", "HOLD", "SAFE"],
+  "invariants": [
+    "AppendOnlyMonotone",
+    "NoWriteInHold",
+    "NoWriteInSAFE",
+    "ProposalNotCommitment"
+  ],
+  "ports": ["tla", "sim"]
+}
