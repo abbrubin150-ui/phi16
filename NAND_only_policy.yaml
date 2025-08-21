@@ -1,0 +1,49 @@
+NAND-only verification policy (HW + SW IR)
+hardware:
+  allowed_primitives:
+    - NAND2
+    - INV_as_NAND
+    - BUF
+    - FF
+  forbidden_primitives:
+    - OR*
+    - AND*
+    - XOR*
+    - XNOR*
+    - AOI*
+    - OAI*
+    - MUX*
+  lint_rules:
+    - name: forbid_non_nand
+      check: "no gate whose kind not in allowed_primitives"
+    - name: fanin_fanout_limits
+      check: "max_fanin <= 2; balanced fanout (QTPU budget)"
+    - name: seq_isolation
+      check: "no latches; only clocked FF; CDC audited"
+  formal_equivalence:
+    from: "RTL (behavioral)"
+    to: "gate-level NAND netlist"
+    tool: "formal EC tool"
+    requirement: "100% proven"
+  timing_budget:
+    qtp_guard:
+      delta_margin_ps: ">= 3x_single_NAND_delay"
+      method: "conservative corners; enforce w3, δ"
+  side_channel:
+    mitigations:
+      - rate_limiting_inputs
+      - constant_time_paths_where_possible
+      - noise_shaping_for_power
+software_ir:
+  ir: "NAND-IR (SSA; boolean ops only)"
+  primitives:
+    - nand(a,b) -> bit
+  desugarings:
+    - not(a): "nand(a,a)"
+    - and(a,b): "not(nand(a,b))"
+    - or(a,b): "nand(not(a), not(b))"
+    - xor(a,b): "or(and(a,not(b)), and(not(a),b))"
+  verifier:
+    - "symbolic execution ensures only nand() and phi()"
+  audit:
+    - "proof-carrying certificate: no forbidden op"

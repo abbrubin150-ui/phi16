@@ -1,0 +1,20 @@
+{
+  "events": [
+    {
+      "id": "e1",
+      "parents": [],
+      "justifies": [
+        "e2"
+      ],
+      "type": "Init"
+    },
+    {
+      "id": "e2",
+      "parents": [
+        "e1"
+      ],
+      "justifies": [],
+      "type": "ConfigChange"
+    }
+  ]
+}
