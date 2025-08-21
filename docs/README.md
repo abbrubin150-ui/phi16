@@ -1,5 +1,6 @@
 # Φ-16 — מסמכי על
 - **Whitepaper (רציונל):** [whitepaper_phi16.md](./whitepaper_phi16.md)
+- **תקן Φ-16 (v1.0):** [standard_phi16_v1.md](./standard_phi16_v1.md)
 - **A2 (שלד אינבריאנטים):** [A2_invariants.md](./A2_invariants.md)
 - **DIA (הסבר):** [DIA_nonmath.md](./DIA_nonmath.md)
 - **OpenDecision-SSM (הפעלה):** [OpenDecision_SSM_ops.md](./OpenDecision_SSM_ops.md)
