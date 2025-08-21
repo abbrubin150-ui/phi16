@@ -55,6 +55,15 @@ def dia_info():
     recovered = min(H, len(E_edges)/max(len(V),1))
     return 0.0 if H==0 else recovered/H
 
-print("DIA_graph =", round(dia_graph(), 4))
-print("DIA_replay =", round(dia_replay(), 4))
-print("DIA_info  =", round(dia_info(), 4))
+TAU = 0.5
+g = dia_graph()
+r = dia_replay()
+i = dia_info()
+print("DIA_graph =", round(g, 4))
+print("DIA_replay =", round(r, 4))
+print("DIA_info  =", round(i, 4))
+
+mode = "RUN"
+if r < TAU:
+    mode = "SAFE"
+print("mode =", mode)
