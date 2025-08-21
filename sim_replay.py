@@ -1,4 +1,6 @@
 import json
+import jsonschema
+from jsonschema import ValidationError
 from collections import defaultdict, deque
 from math import log2
 
@@ -7,6 +9,15 @@ with open("examples/events.json", "r") as f:
 
 with open("spec/ssot/phi16.instance.json", "r") as f:
     cfg = json.load(f)
+
+with open("spec/ssot/phi16.schema.json", "r") as f:
+    schema = json.load(f)
+
+try:
+    jsonschema.validate(cfg, schema)
+except ValidationError as e:
+    print(f"Configuration error: {e.message}")
+    raise SystemExit(1)
 
 E = data["events"]
 id2e = {e["id"]: e for e in E}
