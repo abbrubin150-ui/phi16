@@ -103,3 +103,20 @@ def test_weight_sum_validation(tmp_path):
     with pytest.raises(SystemExit) as excinfo:
         main(str(events_path), str(cfg_path), state)
     assert "Weights must sum to 1" in str(excinfo.value)
+
+
+def test_event_schema_validation(tmp_path, capsys):
+    cfg_path = (
+        Path(__file__).resolve().parents[1]
+        / "spec"
+        / "ssot"
+        / "phi16.instance.json"
+    )
+    bad_events = {"events": [{"id": "e1"}]}
+    events_path = tmp_path / "events.json"
+    events_path.write_text(json.dumps(bad_events))
+    state = ReplayState()
+    with pytest.raises(SystemExit):
+        main(str(events_path), str(cfg_path), state)
+    captured = capsys.readouterr()
+    assert "Event file error" in captured.out
