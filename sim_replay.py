@@ -93,6 +93,11 @@ def main(events_path: str, cfg_path: str, state: ReplayState) -> None:
 
     # Parameters from SSOT instance
     weights = cfg["weights"]
+    total = weights["w_g"] + weights["w_i"] + weights["w_r"]
+    if abs(total - 1.0) > 1e-6:
+        raise SystemExit(
+            f"Weights must sum to 1 (w_g + w_i + w_r = {total})"
+        )
     tau = cfg["tau"]
 
     # Metrics
