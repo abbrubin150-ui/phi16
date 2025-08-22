@@ -148,3 +148,21 @@ def test_json_output(tmp_path):
     assert data["info"] == pytest.approx(0.5)
     assert data["dia"] == pytest.approx(0.6)
     assert data["mode"] == "SAFE"
+
+
+def test_stdout_metrics(capsys):
+    repo_root = Path(__file__).resolve().parents[1]
+    events_path = repo_root / "examples" / "events.json"
+    cfg_path = repo_root / "spec" / "ssot" / "phi16.instance.json"
+    state = ReplayState()
+    main(str(events_path), str(cfg_path), state)
+
+    captured = capsys.readouterr()
+    lines = [line.strip() for line in captured.out.strip().splitlines()]
+    assert lines == [
+        "DIA_graph = 0.5",
+        "DIA_replay = 1.0",
+        "DIA_info  = 0.5",
+        "DIA       = 0.6",
+        "mode = SAFE",
+    ]
