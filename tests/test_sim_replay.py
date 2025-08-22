@@ -310,3 +310,21 @@ def test_unknown_justification_among_many(tmp_path):
     with pytest.raises(SystemExit) as excinfo:
         main(str(events_path), str(cfg_path), state)
     assert "Event e0 justifies unknown event e2" in str(excinfo.value)
+
+
+def test_mode_prev_dia_below_threshold():
+    repo_root = Path(__file__).resolve().parents[1]
+    events_path = repo_root / "examples" / "events.json"
+    cfg_path = repo_root / "spec" / "ssot" / "phi16.instance.json"
+    state = ReplayState()
+    result = main(str(events_path), str(cfg_path), state, prev_dia=0.5)
+    assert result["mode"] == "RUN"
+
+
+def test_mode_prev_dia_above_threshold():
+    repo_root = Path(__file__).resolve().parents[1]
+    events_path = repo_root / "examples" / "events.json"
+    cfg_path = repo_root / "spec" / "ssot" / "phi16.instance.json"
+    state = ReplayState()
+    result = main(str(events_path), str(cfg_path), state, prev_dia=0.7)
+    assert result["mode"] == "SAFE"
