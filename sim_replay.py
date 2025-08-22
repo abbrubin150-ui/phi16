@@ -63,8 +63,17 @@ def dia_info(state: ReplayState) -> float:
     return 0.0 if H == 0 else recovered / H
 
 
-def main(events_path: str, cfg_path: str, state: ReplayState) -> None:
-    """Compute DIA metrics from the given event and config files."""
+def main(
+    events_path: str,
+    cfg_path: str,
+    state: ReplayState,
+    json_out: str | None = None,
+) -> dict:
+    """Compute DIA metrics from the given event and config files.
+
+    If ``json_out`` is provided, results are written to that path instead of
+    printed to stdout.
+    """
 
     with open(events_path, "r") as f:
         data = json.load(f)
@@ -116,10 +125,13 @@ def main(events_path: str, cfg_path: str, state: ReplayState) -> None:
     info = dia_info(state)
     D = weights["w_g"] * G + weights["w_i"] * info + weights["w_r"] * R
 
-    print("DIA_graph =", round(G, 4))
-    print("DIA_replay =", round(R, 4))
-    print("DIA_info  =", round(info, 4))
-    print("DIA       =", round(D, 4))
+    result = {"graph": G, "replay": R, "info": info, "dia": D}
+
+    if not json_out:
+        print("DIA_graph =", round(G, 4))
+        print("DIA_replay =", round(R, 4))
+        print("DIA_info  =", round(info, 4))
+        print("DIA       =", round(D, 4))
 
     mode = "RUN"
     if not replay_ok(state):
@@ -129,13 +141,24 @@ def main(events_path: str, cfg_path: str, state: ReplayState) -> None:
         if D < prev - tau:
             mode = "SAFE"
 
-    print("mode =", mode)
+    result["mode"] = mode
+
+    if json_out:
+        with open(json_out, "w") as f:
+            json.dump(result, f)
+    else:
+        print("mode =", mode)
+
+    return result
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Compute DIA metrics")
     parser.add_argument("events_path", help="Path to events JSON file")
     parser.add_argument("cfg_path", help="Path to configuration JSON file")
+    parser.add_argument(
+        "--json-out", dest="json_out", help="Write metrics to JSON file"
+    )
     args = parser.parse_args()
     state = ReplayState()
-    main(args.events_path, args.cfg_path, state)
+    main(args.events_path, args.cfg_path, state, json_out=args.json_out)

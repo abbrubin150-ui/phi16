@@ -18,5 +18,8 @@ for the Φ-16 architecture (R-invariant, AND-level 0+, 3⊥+1, Silence-Hold).
 
 ## Run DIA toy script
 ```bash
-python3 sim_replay.py
+python3 sim_replay.py examples/events.json spec/ssot/phi16.instance.json
+
+# Write metrics to JSON instead of stdout
+python3 sim_replay.py examples/events.json spec/ssot/phi16.instance.json --json-out dia.json
 ```
