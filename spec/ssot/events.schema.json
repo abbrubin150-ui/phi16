@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Phi16 Events Schema",
+  "type": "object",
+  "properties": {
+    "events": {
+      "type": "array",
+      "items": {"$ref": "#/definitions/event"}
+    }
+  },
+  "required": ["events"],
+  "additionalProperties": false,
+  "definitions": {
+    "event": {
+      "type": "object",
+      "properties": {
+        "id": {"type": "string"},
+        "parents": {
+          "type": "array",
+          "items": {"type": "string"},
+          "default": []
+        },
+        "justifies": {
+          "type": "array",
+          "items": {"type": "string"},
+          "default": []
+        },
+        "type": {"type": "string"}
+      },
+      "required": ["id", "type"],
+      "additionalProperties": false
+    }
+  }
+}

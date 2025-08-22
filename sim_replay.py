@@ -73,11 +73,19 @@ def main(events_path: str, cfg_path: str, state: ReplayState) -> None:
 
     with open("spec/ssot/phi16.schema.json", "r") as f:
         schema = json.load(f)
+    with open("spec/ssot/events.schema.json", "r") as f:
+        events_schema = json.load(f)
 
     try:
         jsonschema.validate(cfg, schema)
     except ValidationError as e:
         print(f"Configuration error: {e.message}")
+        raise SystemExit(1)
+
+    try:
+        jsonschema.validate(data, events_schema)
+    except ValidationError as e:
+        print(f"Event file error: {e.message}")
         raise SystemExit(1)
 
     state.events = data["events"]
