@@ -94,12 +94,12 @@ def main(events_path: str, cfg_path: str) -> None:
     # Metrics
     G = dia_graph()
     R = dia_replay()
-    I = dia_info()
-    D = weights["w_g"] * G + weights["w_i"] * I + weights["w_r"] * R
+    info = dia_info()
+    D = weights["w_g"] * G + weights["w_i"] * info + weights["w_r"] * R
 
     print("DIA_graph =", round(G, 4))
     print("DIA_replay =", round(R, 4))
-    print("DIA_info  =", round(I, 4))
+    print("DIA_info  =", round(info, 4))
     print("DIA       =", round(D, 4))
 
     mode = "RUN"
@@ -119,4 +119,3 @@ if __name__ == "__main__":
     parser.add_argument("cfg_path", help="Path to configuration JSON file")
     args = parser.parse_args()
     main(args.events_path, args.cfg_path)
-

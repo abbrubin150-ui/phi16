@@ -1,12 +1,17 @@
-.PHONY: tla sim lint-ir
+.PHONY: tla sim lint test
 
-# Placeholder targets
-
+# Model check the Phi16 specification with TLC
 tla:
-	@echo "TLA+ checks not implemented"
+	tlc -config Phi16.cfg Phi16.tla
 
+# Replay a trace using the Python simulator
 sim:
 	python sim_replay.py
 
-lint-ir:
-	@echo "IR linter not implemented"
+# Lint all Python sources with flake8
+lint:
+	flake8 .
+
+# Run the Python unit tests
+test:
+	pytest

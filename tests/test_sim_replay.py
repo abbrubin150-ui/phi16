@@ -7,18 +7,25 @@ import pytest
 # Ensure the project root is on the import path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-import sim_replay as sr
-from sim_replay import dia_graph, dia_replay, dia_info, replay_ok
+import sim_replay as sr  # noqa: E402
+from sim_replay import dia_graph, dia_replay, dia_info, replay_ok  # noqa: E402
 
 
 @pytest.fixture
 def sample_events():
-    events_path = Path(__file__).resolve().parents[1] / "examples" / "events.json"
+    events_path = (
+        Path(__file__).resolve().parents[1] / "examples" / "events.json"
+    )
     data = json.loads(events_path.read_text())
 
     sr.E = data["events"]
     sr.V = {e["id"] for e in sr.E}
-    sr.E_edges = {(e["id"], j) for e in sr.E for j in e.get("justifies", []) if j in sr.V}
+    sr.E_edges = {
+        (e["id"], j)
+        for e in sr.E
+        for j in e.get("justifies", [])
+        if j in sr.V
+    }
     yield
     sr.E = []
     sr.V = set()
