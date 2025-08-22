@@ -13,6 +13,7 @@ from sim_replay import (
     dia_replay,
     dia_info,
     replay_ok,
+    main,
 )  # noqa: E402
 
 
@@ -44,3 +45,26 @@ def test_replay_ok(sample_state):
 
 def test_dia_info(sample_state):
     assert dia_info(sample_state) == pytest.approx(0.5)
+
+
+def test_weight_sum_validation(tmp_path):
+    events_path = Path(__file__).resolve().parents[1] / "examples" / "events.json"
+    cfg = {
+        "N": 16,
+        "EPS": 0,
+        "tau": 0.0,
+        "weights": {"w_g": 0.5, "w_i": 0.4, "w_r": 0.2},
+        "states": ["RUN", "HOLD", "SAFE"],
+        "invariants": [
+            "AppendOnlyMonotone",
+            "NoWriteInHold",
+            "NoWriteInSAFE",
+            "ProposalNotCommitment",
+        ],
+        "ports": ["tla", "sim"],
+    }
+    cfg_path = tmp_path / "cfg.json"
+    cfg_path.write_text(json.dumps(cfg))
+    state = ReplayState()
+    with pytest.raises(SystemExit):
+        main(str(events_path), str(cfg_path), state)
