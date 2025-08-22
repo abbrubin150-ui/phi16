@@ -3,6 +3,7 @@ import json
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from math import log2
+from pathlib import Path
 
 import jsonschema
 from jsonschema import ValidationError
@@ -71,9 +72,10 @@ def main(events_path: str, cfg_path: str, state: ReplayState) -> None:
     with open(cfg_path, "r") as f:
         cfg = json.load(f)
 
-    with open("spec/ssot/phi16.schema.json", "r") as f:
+    schema_dir = Path(__file__).resolve().parent / "spec" / "ssot"
+    with open(schema_dir / "phi16.schema.json", "r") as f:
         schema = json.load(f)
-    with open("spec/ssot/events.schema.json", "r") as f:
+    with open(schema_dir / "events.schema.json", "r") as f:
         events_schema = json.load(f)
 
     try:
