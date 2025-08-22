@@ -33,11 +33,20 @@ def sample_state():
         for j in e.get("justifies", [])
         if j in vertices
     }
-    state = ReplayState(events=events, vertices=vertices, edges=edges)
+    parent_edges = {
+        (p, e["id"])
+        for e in events
+        for p in e.get("parents", [])
+        if p in vertices
+    }
+    state = ReplayState(
+        events=events, vertices=vertices, edges=edges, parent_edges=parent_edges
+    )
     yield state
     state.events.clear()
     state.vertices.clear()
     state.edges.clear()
+    state.parent_edges.clear()
 
 
 @pytest.fixture
@@ -58,11 +67,20 @@ def cyclic_state(tmp_path):
         for j in e.get("justifies", [])
         if j in vertices
     }
-    state = ReplayState(events=events, vertices=vertices, edges=edges)
+    parent_edges = {
+        (p, e["id"])
+        for e in events
+        for p in e.get("parents", [])
+        if p in vertices
+    }
+    state = ReplayState(
+        events=events, vertices=vertices, edges=edges, parent_edges=parent_edges
+    )
     yield state
     state.events.clear()
     state.vertices.clear()
     state.edges.clear()
+    state.parent_edges.clear()
 
 
 def test_topo_order_acyclic():
@@ -74,7 +92,10 @@ def test_topo_order_acyclic():
     order = topo_order(state)
     assert order is not None
     assert set(order) == state.vertices
-    assert all(order.index(u) < order.index(v) for u, v in state.edges)
+    assert all(
+        order.index(u) < order.index(v)
+        for u, v in state.edges | state.parent_edges
+    )
 
 
 def test_topo_order_cyclic():
@@ -102,6 +123,39 @@ def test_dia_info(sample_state):
 def test_replay_cycle(cyclic_state):
     assert replay_ok(cyclic_state) is False
     assert dia_replay(cyclic_state) == pytest.approx(0.0)
+
+
+def test_parent_edges_influence_metrics():
+    events = [
+        {"id": 0, "parents": [], "type": "A"},
+        {"id": 1, "parents": [0], "type": "B"},
+    ]
+    vertices = {0, 1}
+    edges: set = set()
+    parent_edges = {(0, 1)}
+    with_parents = ReplayState(
+        events=events, vertices=vertices, edges=edges, parent_edges=parent_edges
+    )
+    without_parents = ReplayState(events=events, vertices=vertices, edges=edges)
+    assert dia_graph(with_parents) == pytest.approx(0.5)
+    assert dia_graph(without_parents) == pytest.approx(0.0)
+    assert dia_info(with_parents) == pytest.approx(0.5)
+    assert dia_info(without_parents) == pytest.approx(0.0)
+
+
+def test_parent_edges_cycle_detection():
+    events = [
+        {"id": 0, "parents": [1]},
+        {"id": 1, "parents": [0]},
+    ]
+    vertices = {0, 1}
+    edges: set = set()
+    parent_edges = {(1, 0), (0, 1)}
+    state = ReplayState(
+        events=events, vertices=vertices, edges=edges, parent_edges=parent_edges
+    )
+    assert replay_ok(state) is False
+    assert dia_replay(state) == pytest.approx(0.0)
 
 
 def test_weight_sum_validation(tmp_path):
