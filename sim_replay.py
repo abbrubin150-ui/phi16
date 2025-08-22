@@ -17,6 +17,7 @@ class ReplayState:
     events: list = field(default_factory=list)
     vertices: set = field(default_factory=set)
     edges: set = field(default_factory=set)
+    parent_edges: set = field(default_factory=set)
 
 
 def dia_graph(state: ReplayState) -> float:
@@ -29,7 +30,8 @@ def dia_graph(state: ReplayState) -> float:
         Ratio of edges to vertices, defaulting to 0 when no vertices exist.
     """
 
-    return len(state.edges) / max(len(state.vertices), 1)
+    all_edges = state.edges | state.parent_edges
+    return len(all_edges) / max(len(state.vertices), 1)
 
 
 def topo_order(state: ReplayState) -> Optional[List[int]]:
@@ -45,7 +47,7 @@ def topo_order(state: ReplayState) -> Optional[List[int]]:
 
     indeg = defaultdict(int)
     adj = defaultdict(list)
-    for u, v in state.edges:
+    for u, v in state.edges | state.parent_edges:
         indeg[v] += 1
         adj[u].append(v)
     q = deque([v for v in state.vertices if indeg[v] == 0])
@@ -116,7 +118,8 @@ def dia_info(state: ReplayState) -> float:
     total = sum(c.values())
     p = [v / total for v in c.values()]
     H = entropy(p) if total > 0 else 0.0
-    recovered = min(H, len(state.edges) / max(len(state.vertices), 1))
+    all_edges = state.edges | state.parent_edges
+    recovered = min(H, len(all_edges) / max(len(state.vertices), 1))
     return 0.0 if H == 0 else recovered / H
 
 
@@ -172,13 +175,17 @@ def main(
         raise SystemExit(f"Duplicate event IDs: {sorted(duplicates)}")
     id2e = {e["id"]: e for e in state.events}
 
-    # Build graph of justifications
+    # Build graph of justifications and parent relations
     state.vertices = set(id2e.keys())
     state.edges = set()
+    state.parent_edges = set()
     for e in state.events:
         for j in e.get("justifies", []):
             if j in state.vertices:
                 state.edges.add((e["id"], j))
+        for p in e.get("parents", []):
+            if p in state.vertices:
+                state.parent_edges.add((p, e["id"]))
 
     # Parameters from SSOT instance
     weights = cfg["weights"]
