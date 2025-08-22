@@ -123,41 +123,40 @@ def dia_info(state: ReplayState) -> float:
     return 0.0 if H == 0 else recovered / H
 
 
-def main(
-    events_path: str,
-    cfg_path: str,
-    state: ReplayState,
+def compute_metrics(
+    events: list,
+    cfg: dict,
+    state: Optional[ReplayState] = None,
     prev_dia: float = 1.0,
-    json_out: str | None = None,
+    schema_dir: str | Path | None = None,
 ) -> dict:
-    """Compute DIA metrics from the given event and config files.
+    """Validate and compute DIA metrics from in-memory data.
 
     Args:
-        events_path: Path to the events JSON file.
-        cfg_path: Path to the configuration JSON file.
-        state: Mutable :class:`ReplayState` used to accumulate graph data.
-        prev_dia: Previous DIA score to compare against when selecting a mode.
-        json_out: Optional path where the resulting metrics should be written
-            as JSON. When omitted, metrics are printed to stdout.
+        events: List of event dictionaries to analyse.
+        cfg: Configuration dictionary.
+        state: Optional :class:`ReplayState` to populate; when omitted a new
+            state is created.
+        prev_dia: Previous DIA score for mode selection.
+        schema_dir: Directory containing ``phi16.schema.json`` and
+            ``events.schema.json``. Defaults to the repository's ``spec/ssot``
+            directory.
 
     Returns:
         A dictionary containing individual metric components, the overall DIA
         value, and the selected mode.
     """
 
-    with open(events_path, "r") as f:
-        data = json.load(f)
+    state = state or ReplayState()
 
-    with open(cfg_path, "r") as f:
-        cfg = json.load(f)
-
-    # Determine schema directory relative to the provided configuration file so
-    # that callers can supply configs from arbitrary locations, as long as the
-    # corresponding schemas reside alongside them.
-    schema_dir = Path(cfg_path).resolve().parent
-    with open(schema_dir / "phi16.schema.json", "r") as f:
+    schema_base = (
+        Path(schema_dir)
+        if schema_dir is not None
+        else Path(__file__).resolve().parent / "spec" / "ssot"
+    )
+    with open(schema_base / "phi16.schema.json", "r") as f:
         schema = json.load(f)
-    with open(schema_dir / "events.schema.json", "r") as f:
+    with open(schema_base / "events.schema.json", "r") as f:
         events_schema = json.load(f)
 
     try:
@@ -167,12 +166,12 @@ def main(
         raise SystemExit(1)
 
     try:
-        jsonschema.validate(data, events_schema)
+        jsonschema.validate({"events": events}, events_schema)
     except ValidationError as e:
         print(f"Event file error: {e.message}")
         raise SystemExit(1)
 
-    state.events = data["events"]
+    state.events = events
     ids = [e["id"] for e in state.events]
     if len(ids) != len(set(ids)):
         seen = set()
@@ -185,7 +184,6 @@ def main(
         raise SystemExit(f"Duplicate event IDs: {sorted(duplicates)}")
     id2e = {e["id"]: e for e in state.events}
 
-    # Build graph of justifications and parent relations
     state.vertices = set(id2e.keys())
     state.edges = set()
     state.parent_edges = set()
@@ -199,7 +197,6 @@ def main(
             if p in state.vertices:
                 state.parent_edges.add((p, e["id"]))
 
-    # Parameters from SSOT instance
     weights = cfg["weights"]
     total = weights["w_g"] + weights["w_i"] + weights["w_r"]
     if abs(total - 1.0) > 1e-6:
@@ -208,19 +205,12 @@ def main(
         )
     tau = cfg["tau"]
 
-    # Metrics
     G = dia_graph(state)
     R = dia_replay(state)
     info = dia_info(state)
     D = weights["w_g"] * G + weights["w_i"] * info + weights["w_r"] * R
 
     result = {"graph": G, "replay": R, "info": info, "dia": D}
-
-    if not json_out:
-        print("DIA_graph =", round(G, 4))
-        print("DIA_replay =", round(R, 4))
-        print("DIA_info  =", round(info, 4))
-        print("DIA       =", round(D, 4))
 
     mode = "RUN"
     if not replay_ok(state):
@@ -231,11 +221,40 @@ def main(
 
     result["mode"] = mode
 
+    return result
+
+
+def main(
+    events_path: str,
+    cfg_path: str,
+    state: ReplayState,
+    prev_dia: float = 1.0,
+    json_out: str | None = None,
+) -> dict:
+    """Compute DIA metrics from the given event and config files."""
+
+    with open(events_path, "r") as f:
+        data = json.load(f)
+    with open(cfg_path, "r") as f:
+        cfg = json.load(f)
+
+    result = compute_metrics(
+        data["events"],
+        cfg,
+        state=state,
+        prev_dia=prev_dia,
+        schema_dir=Path(cfg_path).resolve().parent,
+    )
+
     if json_out:
         with open(json_out, "w") as f:
             json.dump(result, f)
     else:
-        print("mode =", mode)
+        print("DIA_graph =", round(result["graph"], 4))
+        print("DIA_replay =", round(result["replay"], 4))
+        print("DIA_info  =", round(result["info"], 4))
+        print("DIA       =", round(result["dia"], 4))
+        print("mode =", result["mode"])
 
     return result
 
