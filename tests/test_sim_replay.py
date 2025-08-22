@@ -31,7 +31,36 @@ def sample_state():
         for j in e.get("justifies", [])
         if j in vertices
     }
-    return ReplayState(events=events, vertices=vertices, edges=edges)
+    state = ReplayState(events=events, vertices=vertices, edges=edges)
+    yield state
+    state.events.clear()
+    state.vertices.clear()
+    state.edges.clear()
+
+
+@pytest.fixture
+def cyclic_state(tmp_path):
+    data = {
+        "events": [
+            {"id": 0, "justifies": [1]},
+            {"id": 1, "justifies": [0]},
+        ]
+    }
+    events_path = tmp_path / "events.json"
+    events_path.write_text(json.dumps(data))
+    events = data["events"]
+    vertices = {e["id"] for e in events}
+    edges = {
+        (e["id"], j)
+        for e in events
+        for j in e.get("justifies", [])
+        if j in vertices
+    }
+    state = ReplayState(events=events, vertices=vertices, edges=edges)
+    yield state
+    state.events.clear()
+    state.vertices.clear()
+    state.edges.clear()
 
 
 def test_dia_graph(sample_state):
@@ -45,6 +74,11 @@ def test_replay_ok(sample_state):
 
 def test_dia_info(sample_state):
     assert dia_info(sample_state) == pytest.approx(0.5)
+
+
+def test_replay_cycle(cyclic_state):
+    assert replay_ok(cyclic_state) is False
+    assert dia_replay(cyclic_state) == pytest.approx(0.0)
 
 
 def test_weight_sum_validation(tmp_path):
@@ -66,5 +100,6 @@ def test_weight_sum_validation(tmp_path):
     cfg_path = tmp_path / "cfg.json"
     cfg_path.write_text(json.dumps(cfg))
     state = ReplayState()
-    with pytest.raises(SystemExit):
+    with pytest.raises(SystemExit) as excinfo:
         main(str(events_path), str(cfg_path), state)
+    assert "Weights must sum to 1" in str(excinfo.value)
