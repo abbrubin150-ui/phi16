@@ -133,3 +133,18 @@ def test_main_from_different_working_directory(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     main(str(events_path), str(cfg_path), state)
     assert state.events
+
+
+def test_json_output(tmp_path):
+    repo_root = Path(__file__).resolve().parents[1]
+    events_path = repo_root / "examples" / "events.json"
+    cfg_path = repo_root / "spec" / "ssot" / "phi16.instance.json"
+    out_path = tmp_path / "out.json"
+    state = ReplayState()
+    main(str(events_path), str(cfg_path), state, json_out=str(out_path))
+    data = json.loads(out_path.read_text())
+    assert data["graph"] == pytest.approx(0.5)
+    assert data["replay"] == pytest.approx(1.0)
+    assert data["info"] == pytest.approx(0.5)
+    assert data["dia"] == pytest.approx(0.6)
+    assert data["mode"] == "SAFE"
