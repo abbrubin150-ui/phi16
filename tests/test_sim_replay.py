@@ -7,14 +7,14 @@ import pytest
 # Ensure the project root is on the import path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from sim_replay import (
+from sim_replay import (  # noqa: E402
     ReplayState,
     dia_graph,
     dia_replay,
     dia_info,
     replay_ok,
     main,
-)  # noqa: E402
+)
 
 
 @pytest.fixture
@@ -82,7 +82,9 @@ def test_replay_cycle(cyclic_state):
 
 
 def test_weight_sum_validation(tmp_path):
-    events_path = Path(__file__).resolve().parents[1] / "examples" / "events.json"
+    events_path = (
+        Path(__file__).resolve().parents[1] / "examples" / "events.json"
+    )
     cfg = {
         "N": 16,
         "EPS": 0,
@@ -120,3 +122,14 @@ def test_event_schema_validation(tmp_path, capsys):
         main(str(events_path), str(cfg_path), state)
     captured = capsys.readouterr()
     assert "Event file error" in captured.out
+
+
+def test_main_from_different_working_directory(tmp_path, monkeypatch):
+    repo_root = Path(__file__).resolve().parents[1]
+    events_path = repo_root / "examples" / "events.json"
+    cfg_path = repo_root / "spec" / "ssot" / "phi16.instance.json"
+    state = ReplayState()
+
+    monkeypatch.chdir(tmp_path)
+    main(str(events_path), str(cfg_path), state)
+    assert state.events
