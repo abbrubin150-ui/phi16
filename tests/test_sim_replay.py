@@ -16,6 +16,7 @@ from sim_replay import (  # noqa: E402
     dia_info,
     replay_ok,
     main,
+    compute_metrics,
 )
 
 
@@ -365,3 +366,51 @@ def test_mode_prev_dia_above_threshold(tmp_path):
         json_out=str(tmp_path / "above.json"),
     )
     assert result["mode"] == "SAFE"
+
+
+def test_compute_metrics_basic():
+    events = [
+        {"id": "e1", "parents": [], "justifies": ["e2"], "type": "Init"},
+        {"id": "e2", "parents": ["e1"], "justifies": [], "type": "ConfigChange"},
+    ]
+    cfg = {
+        "N": 16,
+        "EPS": 0,
+        "tau": 0.0,
+        "weights": {"w_g": 0.5, "w_i": 0.3, "w_r": 0.2},
+        "states": ["RUN", "HOLD", "SAFE"],
+        "invariants": [
+            "AppendOnlyMonotone",
+            "NoWriteInHold",
+            "NoWriteInSAFE",
+            "ProposalNotCommitment",
+        ],
+        "ports": ["tla", "sim"],
+    }
+    state = ReplayState()
+    result = compute_metrics(events, cfg, state=state)
+    assert result["graph"] == pytest.approx(0.5)
+    assert result["replay"] == pytest.approx(1.0)
+    assert result["info"] == pytest.approx(0.5)
+    assert result["dia"] == pytest.approx(0.6)
+    assert result["mode"] == "SAFE"
+    assert state.events
+
+
+def test_compute_metrics_duplicate_ids():
+    events = [
+        {"id": "e1", "type": "Init"},
+        {"id": "e1", "type": "Config"},
+    ]
+    cfg = {
+        "N": 16,
+        "EPS": 0,
+        "tau": 0.0,
+        "weights": {"w_g": 0.5, "w_i": 0.3, "w_r": 0.2},
+        "states": ["RUN", "HOLD", "SAFE"],
+        "invariants": ["AppendOnlyMonotone"],
+        "ports": ["tla"],
+    }
+    with pytest.raises(SystemExit) as excinfo:
+        compute_metrics(events, cfg)
+    assert "Duplicate event IDs: ['e1']" in str(excinfo.value)
