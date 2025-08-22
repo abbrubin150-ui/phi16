@@ -1,37 +1,20 @@
+import argparse
 import json
-import jsonschema
-from jsonschema import ValidationError
 from collections import defaultdict, deque
 from math import log2
 
-with open("examples/events.json", "r") as f:
-    data = json.load(f)
+import jsonschema
+from jsonschema import ValidationError
 
-with open("spec/ssot/phi16.instance.json", "r") as f:
-    cfg = json.load(f)
-
-with open("spec/ssot/phi16.schema.json", "r") as f:
-    schema = json.load(f)
-
-try:
-    jsonschema.validate(cfg, schema)
-except ValidationError as e:
-    print(f"Configuration error: {e.message}")
-    raise SystemExit(1)
-
-E = data["events"]
-id2e = {e["id"]: e for e in E}
-
-# Build graph of justifications
-V = set(id2e.keys())
+# Global structures populated by ``main``
+E = []
+V = set()
 E_edges = set()
-for e in E:
-    for j in e.get("justifies", []):
-        if j in V:
-            E_edges.add((e["id"], j))
+
 
 def dia_graph():
     return len(E_edges) / max(len(V), 1)
+
 
 def topo_order():
     indeg = defaultdict(int)
@@ -50,14 +33,18 @@ def topo_order():
                 q.append(w)
     return order if len(order) == len(V) else None
 
+
 def replay_ok():
     return topo_order() is not None
+
 
 def dia_replay():
     return 1.0 if replay_ok() else 0.0
 
+
 def entropy(p):
     return -sum(pi * log2(pi) for pi in p if pi > 0)
+
 
 def dia_info():
     types = [e.get("type", "X") for e in E]
@@ -69,27 +56,67 @@ def dia_info():
     recovered = min(H, len(E_edges) / max(len(V), 1))
     return 0.0 if H == 0 else recovered / H
 
-# Parameters from SSOT instance
-weights = cfg["weights"]
-tau = cfg["tau"]
 
-# Metrics
-G = dia_graph()
-R = dia_replay()
-I = dia_info()
-D = weights["w_g"] * G + weights["w_i"] * I + weights["w_r"] * R
+def main(events_path: str, cfg_path: str) -> None:
+    """Compute DIA metrics from the given event and config files."""
+    global E, V, E_edges
 
-print("DIA_graph =", round(G, 4))
-print("DIA_replay =", round(R, 4))
-print("DIA_info  =", round(I, 4))
-print("DIA       =", round(D, 4))
+    with open(events_path, "r") as f:
+        data = json.load(f)
 
-mode = "RUN"
-if not replay_ok():
-    mode = "HOLD"
-else:
-    prev = 1.0  # assume maximum previous DIA
-    if D < prev - tau:
-        mode = "SAFE"
+    with open(cfg_path, "r") as f:
+        cfg = json.load(f)
 
-print("mode =", mode)
+    with open("spec/ssot/phi16.schema.json", "r") as f:
+        schema = json.load(f)
+
+    try:
+        jsonschema.validate(cfg, schema)
+    except ValidationError as e:
+        print(f"Configuration error: {e.message}")
+        raise SystemExit(1)
+
+    E = data["events"]
+    id2e = {e["id"]: e for e in E}
+
+    # Build graph of justifications
+    V = set(id2e.keys())
+    E_edges = set()
+    for e in E:
+        for j in e.get("justifies", []):
+            if j in V:
+                E_edges.add((e["id"], j))
+
+    # Parameters from SSOT instance
+    weights = cfg["weights"]
+    tau = cfg["tau"]
+
+    # Metrics
+    G = dia_graph()
+    R = dia_replay()
+    I = dia_info()
+    D = weights["w_g"] * G + weights["w_i"] * I + weights["w_r"] * R
+
+    print("DIA_graph =", round(G, 4))
+    print("DIA_replay =", round(R, 4))
+    print("DIA_info  =", round(I, 4))
+    print("DIA       =", round(D, 4))
+
+    mode = "RUN"
+    if not replay_ok():
+        mode = "HOLD"
+    else:
+        prev = 1.0  # assume maximum previous DIA
+        if D < prev - tau:
+            mode = "SAFE"
+
+    print("mode =", mode)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Compute DIA metrics")
+    parser.add_argument("events_path", help="Path to events JSON file")
+    parser.add_argument("cfg_path", help="Path to configuration JSON file")
+    args = parser.parse_args()
+    main(args.events_path, args.cfg_path)
+
