@@ -160,6 +160,16 @@ def main(
         raise SystemExit(1)
 
     state.events = data["events"]
+    ids = [e["id"] for e in state.events]
+    if len(ids) != len(set(ids)):
+        seen = set()
+        duplicates = set()
+        for _id in ids:
+            if _id in seen:
+                duplicates.add(_id)
+            else:
+                seen.add(_id)
+        raise SystemExit(f"Duplicate event IDs: {sorted(duplicates)}")
     id2e = {e["id"]: e for e in state.events}
 
     # Build graph of justifications
