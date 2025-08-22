@@ -17,6 +17,7 @@ from sim_replay import (  # noqa: E402
     replay_ok,
     main,
     compute_metrics,
+    entropy,
 )
 
 
@@ -112,6 +113,11 @@ def test_dia_graph(sample_state):
     assert dia_graph(sample_state) == pytest.approx(0.5)
 
 
+def test_dia_graph_empty_state():
+    state = ReplayState()
+    assert dia_graph(state) == pytest.approx(0.0)
+
+
 def test_replay_ok(sample_state):
     assert replay_ok(sample_state) is True
     assert dia_replay(sample_state) == pytest.approx(1.0)
@@ -124,6 +130,19 @@ def test_dia_info(sample_state):
 def test_replay_cycle(cyclic_state):
     assert replay_ok(cyclic_state) is False
     assert dia_replay(cyclic_state) == pytest.approx(0.0)
+
+
+def test_replay_ok_self_loop():
+    events = [{"id": 0, "justifies": [0]}]
+    vertices = {0}
+    edges = {(0, 0)}
+    state = ReplayState(events=events, vertices=vertices, edges=edges)
+    assert replay_ok(state) is False
+
+
+def test_entropy_negative_probability():
+    with pytest.raises(ValueError):
+        entropy([0.5, -0.5])
 
 
 def test_parent_edges_influence_metrics():
