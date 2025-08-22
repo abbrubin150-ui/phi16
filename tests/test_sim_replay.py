@@ -10,6 +10,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from sim_replay import (  # noqa: E402
     ReplayState,
+    topo_order,
     dia_graph,
     dia_replay,
     dia_info,
@@ -62,6 +63,27 @@ def cyclic_state(tmp_path):
     state.events.clear()
     state.vertices.clear()
     state.edges.clear()
+
+
+def test_topo_order_acyclic():
+    state = ReplayState(
+        events=[{"id": 0}, {"id": 1}, {"id": 2}],
+        vertices={0, 1, 2},
+        edges={(0, 1), (1, 2)},
+    )
+    order = topo_order(state)
+    assert order is not None
+    assert set(order) == state.vertices
+    assert all(order.index(u) < order.index(v) for u, v in state.edges)
+
+
+def test_topo_order_cyclic():
+    state = ReplayState(
+        events=[{"id": 0}, {"id": 1}],
+        vertices={0, 1},
+        edges={(0, 1), (1, 0)},
+    )
+    assert topo_order(state) is None
 
 
 def test_dia_graph(sample_state):
