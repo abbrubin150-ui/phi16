@@ -127,6 +127,7 @@ def main(
     events_path: str,
     cfg_path: str,
     state: ReplayState,
+    prev_dia: float = 1.0,
     json_out: str | None = None,
 ) -> dict:
     """Compute DIA metrics from the given event and config files.
@@ -216,8 +217,7 @@ def main(
     if not replay_ok(state):
         mode = "HOLD"
     else:
-        prev = 1.0  # assume maximum previous DIA
-        if D < prev - tau:
+        if D < prev_dia - tau:
             mode = "SAFE"
 
     result["mode"] = mode
@@ -238,6 +238,19 @@ if __name__ == "__main__":
     parser.add_argument(
         "--json-out", dest="json_out", help="Write metrics to JSON file"
     )
+    parser.add_argument(
+        "--prev-dia",
+        dest="prev_dia",
+        type=float,
+        default=1.0,
+        help="Previous DIA value",
+    )
     args = parser.parse_args()
     state = ReplayState()
-    main(args.events_path, args.cfg_path, state, json_out=args.json_out)
+    main(
+        args.events_path,
+        args.cfg_path,
+        state,
+        prev_dia=args.prev_dia,
+        json_out=args.json_out,
+    )
