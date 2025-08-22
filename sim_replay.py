@@ -138,7 +138,10 @@ def main(
     with open(cfg_path, "r") as f:
         cfg = json.load(f)
 
-    schema_dir = Path(__file__).resolve().parent / "spec" / "ssot"
+    # Determine schema directory relative to the provided configuration file so
+    # that callers can supply configs from arbitrary locations, as long as the
+    # corresponding schemas reside alongside them.
+    schema_dir = Path(cfg_path).resolve().parent
     with open(schema_dir / "phi16.schema.json", "r") as f:
         schema = json.load(f)
     with open(schema_dir / "events.schema.json", "r") as f:

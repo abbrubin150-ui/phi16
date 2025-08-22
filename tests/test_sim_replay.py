@@ -1,4 +1,5 @@
 import json
+import shutil
 import sys
 from pathlib import Path
 
@@ -101,6 +102,9 @@ def test_weight_sum_validation(tmp_path):
     }
     cfg_path = tmp_path / "cfg.json"
     cfg_path.write_text(json.dumps(cfg))
+    schema_src = Path(__file__).resolve().parents[1] / "spec" / "ssot"
+    for name in ["phi16.schema.json", "events.schema.json"]:
+        shutil.copy(schema_src / name, tmp_path / name)
     state = ReplayState()
     with pytest.raises(SystemExit) as excinfo:
         main(str(events_path), str(cfg_path), state)
@@ -133,6 +137,24 @@ def test_main_from_different_working_directory(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     main(str(events_path), str(cfg_path), state)
     assert state.events
+
+
+def test_config_with_local_schemas(tmp_path):
+    repo_root = Path(__file__).resolve().parents[1]
+    events_path = repo_root / "examples" / "events.json"
+    schema_src = repo_root / "spec" / "ssot"
+
+    for name in ["phi16.instance.json", "phi16.schema.json", "events.schema.json"]:
+        shutil.copy(schema_src / name, tmp_path / name)
+
+    backup = schema_src.with_name("ssot.bak")
+    schema_src.rename(backup)
+    try:
+        state = ReplayState()
+        main(str(events_path), str(tmp_path / "phi16.instance.json"), state)
+        assert state.events
+    finally:
+        backup.rename(schema_src)
 
 
 def test_json_output(tmp_path):
