@@ -182,9 +182,8 @@ def main(
     for e in state.events:
         for j in e.get("justifies", []):
             if j not in state.vertices:
-                raise SystemExit(
-                    f"Event {e['id']} justifies unknown event {j}"
-                )
+                msg = f"Event {e['id']} justifies unknown event {j}"
+                raise SystemExit(msg)
             state.edges.add((e["id"], j))
         for p in e.get("parents", []):
             if p in state.vertices:

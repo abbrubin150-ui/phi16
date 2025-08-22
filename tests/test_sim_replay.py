@@ -293,3 +293,20 @@ def test_unknown_justification(tmp_path):
     with pytest.raises(SystemExit) as excinfo:
         main(str(events_path), str(cfg_path), state)
     assert "Event e0 justifies unknown event e1" in str(excinfo.value)
+
+
+def test_unknown_justification_among_many(tmp_path):
+    repo_root = Path(__file__).resolve().parents[1]
+    cfg_path = repo_root / "spec" / "ssot" / "phi16.instance.json"
+    events = {
+        "events": [
+            {"id": "e0", "type": "Init", "justifies": ["e1", "e2"]},
+            {"id": "e1", "type": "Init"},
+        ]
+    }
+    events_path = tmp_path / "events.json"
+    events_path.write_text(json.dumps(events))
+    state = ReplayState()
+    with pytest.raises(SystemExit) as excinfo:
+        main(str(events_path), str(cfg_path), state)
+    assert "Event e0 justifies unknown event e2" in str(excinfo.value)
