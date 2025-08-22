@@ -96,9 +96,15 @@ def entropy(p: Iterable[float]) -> float:
 
     Returns:
         Entropy in bits.
+
+    Raises:
+        ValueError: If any probability is negative.
     """
 
-    return -sum(pi * log2(pi) for pi in p if pi > 0)
+    probabilities = list(p)
+    if any(pi < 0 for pi in probabilities):
+        raise ValueError("probabilities must be non-negative")
+    return -sum(pi * log2(pi) for pi in probabilities if pi > 0)
 
 
 def dia_info(state: ReplayState) -> float:
