@@ -1,28 +1,33 @@
 import argparse
 import json
 from collections import defaultdict, deque
+from dataclasses import dataclass, field
 from math import log2
 
 import jsonschema
 from jsonschema import ValidationError
 
-# Global structures populated by ``main``
-E = []
-V = set()
-E_edges = set()
+
+@dataclass
+class ReplayState:
+    """Holds data required for DIA computations."""
+
+    events: list = field(default_factory=list)
+    vertices: set = field(default_factory=set)
+    edges: set = field(default_factory=set)
 
 
-def dia_graph():
-    return len(E_edges) / max(len(V), 1)
+def dia_graph(state: ReplayState) -> float:
+    return len(state.edges) / max(len(state.vertices), 1)
 
 
-def topo_order():
+def topo_order(state: ReplayState):
     indeg = defaultdict(int)
     adj = defaultdict(list)
-    for u, v in E_edges:
+    for u, v in state.edges:
         indeg[v] += 1
         adj[u].append(v)
-    q = deque([v for v in V if indeg[v] == 0])
+    q = deque([v for v in state.vertices if indeg[v] == 0])
     order = []
     while q:
         u = q.popleft()
@@ -31,35 +36,34 @@ def topo_order():
             indeg[w] -= 1
             if indeg[w] == 0:
                 q.append(w)
-    return order if len(order) == len(V) else None
+    return order if len(order) == len(state.vertices) else None
 
 
-def replay_ok():
-    return topo_order() is not None
+def replay_ok(state: ReplayState) -> bool:
+    return topo_order(state) is not None
 
 
-def dia_replay():
-    return 1.0 if replay_ok() else 0.0
+def dia_replay(state: ReplayState) -> float:
+    return 1.0 if replay_ok(state) else 0.0
 
 
 def entropy(p):
     return -sum(pi * log2(pi) for pi in p if pi > 0)
 
 
-def dia_info():
-    types = [e.get("type", "X") for e in E]
+def dia_info(state: ReplayState) -> float:
+    types = [e.get("type", "X") for e in state.events]
     from collections import Counter
     c = Counter(types)
     total = sum(c.values())
     p = [v / total for v in c.values()]
     H = entropy(p) if total > 0 else 0.0
-    recovered = min(H, len(E_edges) / max(len(V), 1))
+    recovered = min(H, len(state.edges) / max(len(state.vertices), 1))
     return 0.0 if H == 0 else recovered / H
 
 
-def main(events_path: str, cfg_path: str) -> None:
+def main(events_path: str, cfg_path: str, state: ReplayState) -> None:
     """Compute DIA metrics from the given event and config files."""
-    global E, V, E_edges
 
     with open(events_path, "r") as f:
         data = json.load(f)
@@ -76,25 +80,25 @@ def main(events_path: str, cfg_path: str) -> None:
         print(f"Configuration error: {e.message}")
         raise SystemExit(1)
 
-    E = data["events"]
-    id2e = {e["id"]: e for e in E}
+    state.events = data["events"]
+    id2e = {e["id"]: e for e in state.events}
 
     # Build graph of justifications
-    V = set(id2e.keys())
-    E_edges = set()
-    for e in E:
+    state.vertices = set(id2e.keys())
+    state.edges = set()
+    for e in state.events:
         for j in e.get("justifies", []):
-            if j in V:
-                E_edges.add((e["id"], j))
+            if j in state.vertices:
+                state.edges.add((e["id"], j))
 
     # Parameters from SSOT instance
     weights = cfg["weights"]
     tau = cfg["tau"]
 
     # Metrics
-    G = dia_graph()
-    R = dia_replay()
-    info = dia_info()
+    G = dia_graph(state)
+    R = dia_replay(state)
+    info = dia_info(state)
     D = weights["w_g"] * G + weights["w_i"] * info + weights["w_r"] * R
 
     print("DIA_graph =", round(G, 4))
@@ -103,7 +107,7 @@ def main(events_path: str, cfg_path: str) -> None:
     print("DIA       =", round(D, 4))
 
     mode = "RUN"
-    if not replay_ok():
+    if not replay_ok(state):
         mode = "HOLD"
     else:
         prev = 1.0  # assume maximum previous DIA
@@ -118,4 +122,5 @@ if __name__ == "__main__":
     parser.add_argument("events_path", help="Path to events JSON file")
     parser.add_argument("cfg_path", help="Path to configuration JSON file")
     args = parser.parse_args()
-    main(args.events_path, args.cfg_path)
+    state = ReplayState()
+    main(args.events_path, args.cfg_path, state)
