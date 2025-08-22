@@ -126,7 +126,6 @@ def dia_info(state: ReplayState) -> float:
 def compute_metrics(
     events: list,
     cfg: dict,
-    state: Optional[ReplayState] = None,
     prev_dia: float = 1.0,
     schema_dir: str | Path | None = None,
 ) -> dict:
@@ -135,8 +134,6 @@ def compute_metrics(
     Args:
         events: List of event dictionaries to analyse.
         cfg: Configuration dictionary.
-        state: Optional :class:`ReplayState` to populate; when omitted a new
-            state is created.
         prev_dia: Previous DIA score for mode selection.
         schema_dir: Directory containing ``phi16.schema.json`` and
             ``events.schema.json``. Defaults to the repository's ``spec/ssot``
@@ -147,7 +144,7 @@ def compute_metrics(
         value, and the selected mode.
     """
 
-    state = state or ReplayState()
+    state = ReplayState()
 
     schema_base = (
         Path(schema_dir)
@@ -227,7 +224,6 @@ def compute_metrics(
 def main(
     events_path: str,
     cfg_path: str,
-    state: ReplayState,
     prev_dia: float = 1.0,
     json_out: str | None = None,
 ) -> dict:
@@ -241,7 +237,6 @@ def main(
     result = compute_metrics(
         data["events"],
         cfg,
-        state=state,
         prev_dia=prev_dia,
         schema_dir=Path(cfg_path).resolve().parent,
     )
@@ -274,11 +269,9 @@ if __name__ == "__main__":
         help="Previous DIA value used for mode selection",
     )
     args = parser.parse_args()
-    state = ReplayState()
     main(
         args.events_path,
         args.cfg_path,
-        state,
         prev_dia=args.prev_dia,
         json_out=args.json_out,
     )

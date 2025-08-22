@@ -182,9 +182,8 @@ def test_weight_sum_validation(tmp_path):
     schema_src = Path(__file__).resolve().parents[1] / "spec" / "ssot"
     for name in ["phi16.schema.json", "events.schema.json"]:
         shutil.copy(schema_src / name, tmp_path / name)
-    state = ReplayState()
     with pytest.raises(SystemExit) as excinfo:
-        main(str(events_path), str(cfg_path), state)
+        main(str(events_path), str(cfg_path))
     assert "Weights must sum to 1" in str(excinfo.value)
 
 
@@ -198,9 +197,8 @@ def test_event_schema_validation(tmp_path, capsys):
     bad_events = {"events": [{"id": "e1"}]}
     events_path = tmp_path / "events.json"
     events_path.write_text(json.dumps(bad_events))
-    state = ReplayState()
     with pytest.raises(SystemExit):
-        main(str(events_path), str(cfg_path), state)
+        main(str(events_path), str(cfg_path))
     captured = capsys.readouterr()
     assert "Event file error" in captured.out
 
@@ -209,11 +207,10 @@ def test_main_from_different_working_directory(tmp_path, monkeypatch):
     repo_root = Path(__file__).resolve().parents[1]
     events_path = repo_root / "examples" / "events.json"
     cfg_path = repo_root / "spec" / "ssot" / "phi16.instance.json"
-    state = ReplayState()
 
     monkeypatch.chdir(tmp_path)
-    main(str(events_path), str(cfg_path), state)
-    assert state.events
+    result = main(str(events_path), str(cfg_path))
+    assert result["dia"] == pytest.approx(0.6)
 
 
 def test_config_with_local_schemas(tmp_path):
@@ -227,9 +224,8 @@ def test_config_with_local_schemas(tmp_path):
     backup = schema_src.with_name("ssot.bak")
     schema_src.rename(backup)
     try:
-        state = ReplayState()
-        main(str(events_path), str(tmp_path / "phi16.instance.json"), state)
-        assert state.events
+        result = main(str(events_path), str(tmp_path / "phi16.instance.json"))
+        assert result["dia"] == pytest.approx(0.6)
     finally:
         backup.rename(schema_src)
 
@@ -239,8 +235,7 @@ def test_json_output(tmp_path):
     events_path = repo_root / "examples" / "events.json"
     cfg_path = repo_root / "spec" / "ssot" / "phi16.instance.json"
     out_path = tmp_path / "out.json"
-    state = ReplayState()
-    main(str(events_path), str(cfg_path), state, json_out=str(out_path))
+    main(str(events_path), str(cfg_path), json_out=str(out_path))
     data = json.loads(out_path.read_text())
     assert data["graph"] == pytest.approx(0.5)
     assert data["replay"] == pytest.approx(1.0)
@@ -253,8 +248,7 @@ def test_stdout_metrics(capsys):
     repo_root = Path(__file__).resolve().parents[1]
     events_path = repo_root / "examples" / "events.json"
     cfg_path = repo_root / "spec" / "ssot" / "phi16.instance.json"
-    state = ReplayState()
-    main(str(events_path), str(cfg_path), state)
+    main(str(events_path), str(cfg_path))
 
     captured = capsys.readouterr()
     lines = [line.strip() for line in captured.out.strip().splitlines()]
@@ -278,9 +272,8 @@ def test_duplicate_event_ids(tmp_path):
     }
     events_path = tmp_path / "events.json"
     events_path.write_text(json.dumps(events))
-    state = ReplayState()
     with pytest.raises(SystemExit) as excinfo:
-        main(str(events_path), str(cfg_path), state)
+        main(str(events_path), str(cfg_path))
     assert "Duplicate event IDs: ['e1']" in str(excinfo.value)
 
 
@@ -290,9 +283,8 @@ def test_unknown_justification(tmp_path):
     events = {"events": [{"id": "e0", "type": "Init", "justifies": ["e1"]}]}
     events_path = tmp_path / "events.json"
     events_path.write_text(json.dumps(events))
-    state = ReplayState()
     with pytest.raises(SystemExit) as excinfo:
-        main(str(events_path), str(cfg_path), state)
+        main(str(events_path), str(cfg_path))
     assert "Event e0 justifies unknown event e1" in str(excinfo.value)
 
 
@@ -307,9 +299,8 @@ def test_unknown_justification_among_many(tmp_path):
     }
     events_path = tmp_path / "events.json"
     events_path.write_text(json.dumps(events))
-    state = ReplayState()
     with pytest.raises(SystemExit) as excinfo:
-        main(str(events_path), str(cfg_path), state)
+        main(str(events_path), str(cfg_path))
     assert "Event e0 justifies unknown event e2" in str(excinfo.value)
 
 
@@ -319,22 +310,18 @@ def test_mode_prev_dia_below_threshold(tmp_path):
     cfg_path = repo_root / "spec" / "ssot" / "phi16.instance.json"
 
     # Determine threshold D - tau using a baseline computation
-    baseline_state = ReplayState()
     baseline = main(
         str(events_path),
         str(cfg_path),
-        baseline_state,
         json_out=str(tmp_path / "baseline.json"),
     )
     cfg = json.loads(cfg_path.read_text())
     threshold = baseline["dia"] - cfg["tau"]
 
     # Provide prev_dia just below threshold -> RUN
-    state = ReplayState()
     result = main(
         str(events_path),
         str(cfg_path),
-        state,
         prev_dia=threshold - 0.01,
         json_out=str(tmp_path / "below.json"),
     )
@@ -346,22 +333,18 @@ def test_mode_prev_dia_above_threshold(tmp_path):
     events_path = repo_root / "examples" / "events.json"
     cfg_path = repo_root / "spec" / "ssot" / "phi16.instance.json"
 
-    baseline_state = ReplayState()
     baseline = main(
         str(events_path),
         str(cfg_path),
-        baseline_state,
         json_out=str(tmp_path / "baseline.json"),
     )
     cfg = json.loads(cfg_path.read_text())
     threshold = baseline["dia"] - cfg["tau"]
 
     # Provide prev_dia above threshold -> SAFE
-    state = ReplayState()
     result = main(
         str(events_path),
         str(cfg_path),
-        state,
         prev_dia=threshold + 0.01,
         json_out=str(tmp_path / "above.json"),
     )
@@ -387,14 +370,12 @@ def test_compute_metrics_basic():
         ],
         "ports": ["tla", "sim"],
     }
-    state = ReplayState()
-    result = compute_metrics(events, cfg, state=state)
+    result = compute_metrics(events, cfg)
     assert result["graph"] == pytest.approx(0.5)
     assert result["replay"] == pytest.approx(1.0)
     assert result["info"] == pytest.approx(0.5)
     assert result["dia"] == pytest.approx(0.6)
     assert result["mode"] == "SAFE"
-    assert state.events
 
 
 def test_compute_metrics_duplicate_ids():
