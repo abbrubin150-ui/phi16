@@ -281,3 +281,15 @@ def test_duplicate_event_ids(tmp_path):
     with pytest.raises(SystemExit) as excinfo:
         main(str(events_path), str(cfg_path), state)
     assert "Duplicate event IDs: ['e1']" in str(excinfo.value)
+
+
+def test_unknown_justification(tmp_path):
+    repo_root = Path(__file__).resolve().parents[1]
+    cfg_path = repo_root / "spec" / "ssot" / "phi16.instance.json"
+    events = {"events": [{"id": "e0", "type": "Init", "justifies": ["e1"]}]}
+    events_path = tmp_path / "events.json"
+    events_path.write_text(json.dumps(events))
+    state = ReplayState()
+    with pytest.raises(SystemExit) as excinfo:
+        main(str(events_path), str(cfg_path), state)
+    assert "Event e0 justifies unknown event e1" in str(excinfo.value)
