@@ -312,19 +312,56 @@ def test_unknown_justification_among_many(tmp_path):
     assert "Event e0 justifies unknown event e2" in str(excinfo.value)
 
 
-def test_mode_prev_dia_below_threshold():
+def test_mode_prev_dia_below_threshold(tmp_path):
     repo_root = Path(__file__).resolve().parents[1]
     events_path = repo_root / "examples" / "events.json"
     cfg_path = repo_root / "spec" / "ssot" / "phi16.instance.json"
+
+    # Determine threshold D - tau using a baseline computation
+    baseline_state = ReplayState()
+    baseline = main(
+        str(events_path),
+        str(cfg_path),
+        baseline_state,
+        json_out=str(tmp_path / "baseline.json"),
+    )
+    cfg = json.loads(cfg_path.read_text())
+    threshold = baseline["dia"] - cfg["tau"]
+
+    # Provide prev_dia just below threshold -> RUN
     state = ReplayState()
-    result = main(str(events_path), str(cfg_path), state, prev_dia=0.5)
+    result = main(
+        str(events_path),
+        str(cfg_path),
+        state,
+        prev_dia=threshold - 0.01,
+        json_out=str(tmp_path / "below.json"),
+    )
     assert result["mode"] == "RUN"
 
 
-def test_mode_prev_dia_above_threshold():
+def test_mode_prev_dia_above_threshold(tmp_path):
     repo_root = Path(__file__).resolve().parents[1]
     events_path = repo_root / "examples" / "events.json"
     cfg_path = repo_root / "spec" / "ssot" / "phi16.instance.json"
+
+    baseline_state = ReplayState()
+    baseline = main(
+        str(events_path),
+        str(cfg_path),
+        baseline_state,
+        json_out=str(tmp_path / "baseline.json"),
+    )
+    cfg = json.loads(cfg_path.read_text())
+    threshold = baseline["dia"] - cfg["tau"]
+
+    # Provide prev_dia above threshold -> SAFE
     state = ReplayState()
-    result = main(str(events_path), str(cfg_path), state, prev_dia=0.7)
+    result = main(
+        str(events_path),
+        str(cfg_path),
+        state,
+        prev_dia=threshold + 0.01,
+        json_out=str(tmp_path / "above.json"),
+    )
     assert result["mode"] == "SAFE"

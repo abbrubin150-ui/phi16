@@ -132,8 +132,17 @@ def main(
 ) -> dict:
     """Compute DIA metrics from the given event and config files.
 
-    If ``json_out`` is provided, results are written to that path instead of
-    printed to stdout.
+    Args:
+        events_path: Path to the events JSON file.
+        cfg_path: Path to the configuration JSON file.
+        state: Mutable :class:`ReplayState` used to accumulate graph data.
+        prev_dia: Previous DIA score to compare against when selecting a mode.
+        json_out: Optional path where the resulting metrics should be written
+            as JSON. When omitted, metrics are printed to stdout.
+
+    Returns:
+        A dictionary containing individual metric components, the overall DIA
+        value, and the selected mode.
     """
 
     with open(events_path, "r") as f:
@@ -243,7 +252,7 @@ if __name__ == "__main__":
         dest="prev_dia",
         type=float,
         default=1.0,
-        help="Previous DIA value",
+        help="Previous DIA value used for mode selection",
     )
     args = parser.parse_args()
     state = ReplayState()
