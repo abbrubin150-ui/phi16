@@ -13,6 +13,12 @@ for the Φ-16 architecture (R-invariant, AND-level 0+, 3⊥+1, Silence-Hold).
 - `examples/events.json` — tiny sample ledger.
 - `sim_replay.py` — reference script for DIA metrics.
 
+## Installation
+Install runtime and development dependencies with pip:
+```bash
+pip install -r requirements.txt
+```
+
 ## Run TLC
 1. Open `Phi16.tla` with TLA+ Toolbox, load `Phi16.cfg`, run model checking.
 
