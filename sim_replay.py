@@ -4,6 +4,7 @@ from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from math import log2
 from pathlib import Path
+from typing import Iterable, List, Optional
 
 import jsonschema
 from jsonschema import ValidationError
@@ -19,17 +20,36 @@ class ReplayState:
 
 
 def dia_graph(state: ReplayState) -> float:
+    """Calculate edge density for the current replay state.
+
+    Args:
+        state: Replay state containing vertices and edges.
+
+    Returns:
+        Ratio of edges to vertices, defaulting to 0 when no vertices exist.
+    """
+
     return len(state.edges) / max(len(state.vertices), 1)
 
 
-def topo_order(state: ReplayState):
+def topo_order(state: ReplayState) -> Optional[List[int]]:
+    """Return a topological ordering of the event graph if possible.
+
+    Args:
+        state: Replay state containing the current graph.
+
+    Returns:
+        A list of event IDs in topological order, or ``None`` if cycles are
+        detected.
+    """
+
     indeg = defaultdict(int)
     adj = defaultdict(list)
     for u, v in state.edges:
         indeg[v] += 1
         adj[u].append(v)
     q = deque([v for v in state.vertices if indeg[v] == 0])
-    order = []
+    order: List[int] = []
     while q:
         u = q.popleft()
         order.append(u)
@@ -41,18 +61,55 @@ def topo_order(state: ReplayState):
 
 
 def replay_ok(state: ReplayState) -> bool:
+    """Check whether the event graph is acyclic.
+
+    Args:
+        state: Replay state containing the event graph.
+
+    Returns:
+        ``True`` if a topological order exists, ``False`` otherwise.
+    """
+
     return topo_order(state) is not None
 
 
 def dia_replay(state: ReplayState) -> float:
+    """Score if the event graph can be replayed without cycles.
+
+    Args:
+        state: Replay state containing the event graph.
+
+    Returns:
+        ``1.0`` when the graph is acyclic, otherwise ``0.0``.
+    """
+
     return 1.0 if replay_ok(state) else 0.0
 
 
-def entropy(p):
+def entropy(p: Iterable[float]) -> float:
+    """Compute the Shannon entropy of a distribution.
+
+    Args:
+        p: Iterable of probability values.
+
+    Returns:
+        Entropy in bits.
+    """
+
     return -sum(pi * log2(pi) for pi in p if pi > 0)
 
 
 def dia_info(state: ReplayState) -> float:
+    """Estimate information recovered by the event graph.
+
+    Args:
+        state: Replay state containing events and graph structure.
+
+    Returns:
+        Fraction of information captured by the graph relative to event
+        diversity.
+    """
+
     types = [e.get("type", "X") for e in state.events]
     from collections import Counter
     c = Counter(types)
