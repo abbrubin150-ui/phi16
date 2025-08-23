@@ -18,6 +18,7 @@ from sim_replay import (  # noqa: E402
     main,
     compute_metrics,
     entropy,
+    StreamingReplay,
 )
 
 
@@ -247,6 +248,59 @@ def test_config_with_local_schemas(tmp_path):
         assert result["dia"] == pytest.approx(0.6)
     finally:
         backup.rename(schema_src)
+
+
+def test_append_only_violation():
+    events = [
+        {"id": "e2", "parents": [], "type": "X"},
+        {"id": "e1", "parents": [], "type": "X"},
+    ]
+    cfg = {
+        "N": 16,
+        "EPS": 0,
+        "tau": 0.0,
+        "weights": {"w_g": 0.5, "w_i": 0.3, "w_r": 0.2},
+        "states": ["RUN", "HOLD", "SAFE"],
+        "invariants": ["AppendOnlyMonotone"],
+        "ports": ["sim"],
+    }
+    with pytest.raises(SystemExit) as excinfo:
+        compute_metrics(events, cfg)
+    assert "monotone increasing" in str(excinfo.value)
+
+
+def test_no_write_in_hold():
+    events = [{"id": "e1", "parents": [], "type": "X"}]
+    cfg = {
+        "N": 16,
+        "EPS": 0,
+        "tau": 0.0,
+        "weights": {"w_g": 0.5, "w_i": 0.3, "w_r": 0.2},
+        "states": ["RUN", "HOLD", "SAFE"],
+        "invariants": ["NoWriteInHold"],
+        "ports": ["sim"],
+    }
+    with pytest.raises(SystemExit) as excinfo:
+        compute_metrics(events, cfg, prev_mode="HOLD")
+    assert "HOLD mode" in str(excinfo.value)
+
+
+def test_streaming_replay_matches_batch():
+    repo_root = Path(__file__).resolve().parents[1]
+    events_path = repo_root / "examples" / "events.json"
+    cfg_path = repo_root / "spec" / "ssot" / "phi16.instance.json"
+    events = json.loads(events_path.read_text())["events"]
+    cfg = json.loads(cfg_path.read_text())
+
+    sim = StreamingReplay(cfg)
+    for ev in events:
+        sim.add_event(ev)
+    stream_res = sim.metrics()
+
+    batch_res = compute_metrics(events, cfg)
+
+    assert stream_res["dia"] == pytest.approx(batch_res["dia"])
+    assert stream_res["mode"] == batch_res["mode"]
 
 
 def test_json_output(tmp_path):
