@@ -129,10 +129,114 @@ def dia_info(state: ReplayState) -> float:
     return 0.0 if H == 0 else recovered / H
 
 
+class StreamingReplay:
+    """Incrementally validate events and compute DIA metrics.
+
+    The class enforces configured invariants on every appended event and can be
+    used to process large ledgers without materialising the full history at
+    once.
+    """
+
+    def __init__(
+        self,
+        cfg: dict,
+        prev_dia: float = 1.0,
+        prev_mode: str = "RUN",
+        schema_dir: str | Path | None = None,
+    ) -> None:
+        self.state = ReplayState()
+        self.cfg = cfg
+        self.prev_dia = prev_dia
+        self.prev_mode = prev_mode
+
+        schema_base = (
+            Path(schema_dir)
+            if schema_dir is not None
+            else Path(__file__).resolve().parent / "spec" / "ssot"
+        )
+        with open(schema_base / "phi16.schema.json", "r") as f:
+            schema = json.load(f)
+        with open(schema_base / "events.schema.json", "r") as f:
+            events_schema = json.load(f)
+
+        try:
+            jsonschema.validate(cfg, schema)
+        except ValidationError as e:
+            print(f"Configuration error: {e.message}")
+            raise SystemExit(1)
+
+        self.events_schema = events_schema
+        self.invariants = set(cfg.get("invariants", []))
+        states = cfg.get("states", [])
+        if prev_mode not in states:
+            raise SystemExit(f"Unknown previous mode: {prev_mode}")
+
+        self._last_id: str | None = None
+
+    # ------------------------------------------------------------------
+    def add_event(self, event: dict) -> None:
+        """Append ``event`` to the log enforcing configured invariants."""
+
+        if "NoWriteInHold" in self.invariants and self.prev_mode == "HOLD":
+            raise SystemExit("Writes not allowed while in HOLD mode")
+        if "NoWriteInSAFE" in self.invariants and self.prev_mode == "SAFE":
+            raise SystemExit("Writes not allowed while in SAFE mode")
+
+        jsonschema.validate({"events": [event]}, self.events_schema)
+
+        eid = event["id"]
+        if self._last_id is not None and "AppendOnlyMonotone" in self.invariants:
+            if str(eid) <= str(self._last_id):
+                raise SystemExit(
+                    f"Event IDs must be monotone increasing: {eid} after {self._last_id}"
+                )
+
+        if eid in self.state.vertices:
+            raise SystemExit(f"Duplicate event ID: {eid}")
+        self._last_id = eid
+        self.state.events.append(event)
+        self.state.vertices.add(eid)
+
+        for j in event.get("justifies", []):
+            self.state.edges.add((eid, j))
+        for p in event.get("parents", []):
+            if p in self.state.vertices:
+                self.state.parent_edges.add((p, eid))
+
+    # ------------------------------------------------------------------
+    def metrics(self) -> dict:
+        """Return the DIA metrics for the current replay state."""
+        for _, v in self.state.edges | self.state.parent_edges:
+            if v not in self.state.vertices:
+                raise SystemExit(f"Event refers to unknown event {v}")
+
+        weights = self.cfg["weights"]
+        total = weights["w_g"] + weights["w_i"] + weights["w_r"]
+        if abs(total - 1.0) > 1e-6:
+            raise SystemExit(
+                f"Weights must sum to 1 (w_g + w_i + w_r = {total})"
+            )
+        tau = self.cfg["tau"]
+
+        G = dia_graph(self.state)
+        R = dia_replay(self.state)
+        info = dia_info(self.state)
+        D = weights["w_g"] * G + weights["w_i"] * info + weights["w_r"] * R
+
+        mode = "RUN"
+        if not replay_ok(self.state):
+            mode = "HOLD"
+        elif D < self.prev_dia - tau:
+            mode = "SAFE"
+
+        return {"graph": G, "replay": R, "info": info, "dia": D, "mode": mode}
+
+
 def compute_metrics(
     events: list,
     cfg: dict,
     prev_dia: float = 1.0,
+    prev_mode: str = "RUN",
     schema_dir: str | Path | None = None,
 ) -> dict:
     """Validate and compute DIA metrics from in-memory data.
@@ -174,6 +278,15 @@ def compute_metrics(
         print(f"Event file error: {e.message}")
         raise SystemExit(1)
 
+    invariants = set(cfg.get("invariants", []))
+    states = cfg.get("states", [])
+    if prev_mode not in states:
+        raise SystemExit(f"Unknown previous mode: {prev_mode}")
+    if "NoWriteInHold" in invariants and prev_mode == "HOLD" and events:
+        raise SystemExit("Writes not allowed while in HOLD mode")
+    if "NoWriteInSAFE" in invariants and prev_mode == "SAFE" and events:
+        raise SystemExit("Writes not allowed while in SAFE mode")
+
     state.events = events
     ids = [e["id"] for e in state.events]
     if len(ids) != len(set(ids)):
@@ -185,6 +298,15 @@ def compute_metrics(
             else:
                 seen.add(_id)
         raise SystemExit(f"Duplicate event IDs: {sorted(duplicates)}")
+    prev_id: str | None = None
+    for eid in ids:
+        if prev_id is not None and "AppendOnlyMonotone" in invariants:
+            if str(eid) <= str(prev_id):
+                raise SystemExit(
+                    f"Event IDs must be monotone increasing: {eid} after {prev_id}"
+                )
+        prev_id = eid
+
     id2e = {e["id"]: e for e in state.events}
 
     state.vertices = set(id2e.keys())
@@ -231,6 +353,7 @@ def main(
     events_path: str,
     cfg_path: str,
     prev_dia: float = 1.0,
+    prev_mode: str = "RUN",
     json_out: str | None = None,
 ) -> dict:
     """Compute DIA metrics from the given event and config files."""
@@ -244,6 +367,7 @@ def main(
         data["events"],
         cfg,
         prev_dia=prev_dia,
+        prev_mode=prev_mode,
         schema_dir=Path(cfg_path).resolve().parent,
     )
 
@@ -274,10 +398,17 @@ if __name__ == "__main__":
         default=1.0,
         help="Previous DIA value used for mode selection",
     )
+    parser.add_argument(
+        "--prev-mode",
+        dest="prev_mode",
+        default="RUN",
+        help="Previous mode used for invariant checks",
+    )
     args = parser.parse_args()
     main(
         args.events_path,
         args.cfg_path,
         prev_dia=args.prev_dia,
+        prev_mode=args.prev_mode,
         json_out=args.json_out,
     )
