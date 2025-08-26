@@ -1,5 +1,6 @@
 import argparse
 import json
+import hashlib
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from math import log2
@@ -129,6 +130,13 @@ def dia_info(state: ReplayState) -> float:
     return 0.0 if H == 0 else recovered / H
 
 
+def block_hash(block: dict) -> str:
+    """Return the SHA256 hash of ``block``."""
+
+    payload = json.dumps(block, sort_keys=True).encode()
+    return hashlib.sha256(payload).hexdigest()
+
+
 class StreamingReplay:
     """Incrementally validate events and compute DIA metrics.
 
@@ -172,6 +180,21 @@ class StreamingReplay:
             raise SystemExit(f"Unknown previous mode: {prev_mode}")
 
         self._last_id: str | None = None
+        self._head_hash: str | None = None
+
+    # ------------------------------------------------------------------
+    def load(self, blocks: list, prev_hash: str | None = None) -> None:
+        """Load ``blocks`` validating the hash chain."""
+
+        last = None
+        for blk in blocks:
+            if last is not None and blk["prev_hash"] != last:
+                raise SystemExit("Hash chain validation failed")
+            self.add_event(blk["data"])
+            last = block_hash(blk)
+        self._head_hash = last
+        if prev_hash not in (None, "") and prev_hash != last:
+            raise SystemExit("Ledger head hash mismatch")
 
     # ------------------------------------------------------------------
     def add_event(self, event: dict) -> None:
