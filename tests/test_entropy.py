@@ -40,6 +40,18 @@ def test_generation_is_deterministic_with_seed():
     assert first.distribution == second.distribution
 
 
+def test_generate_rejects_empty_seeds():
+    with pytest.raises(ValueError, match="seeds"):
+        generate([])
+
+
+def test_generate_rejects_non_positive_per_seed():
+    with pytest.raises(ValueError, match="per_seed"):
+        generate(["x"], per_seed=0)
+    with pytest.raises(ValueError, match="per_seed"):
+        generate(["x"], per_seed=-1)
+
+
 def test_entropy_rejects_invalid_total():
     with pytest.raises(ValueError):
         entropy([0.4, 0.4])

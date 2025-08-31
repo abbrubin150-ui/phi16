@@ -60,7 +60,17 @@ def generate(
         How many concepts to derive from each ``seed``.  ``1`` by default.
     rng_seed:
         Optional random seed to keep generation deterministic in tests.
+
+    Raises
+    ------
+    ValueError:
+        If ``seeds`` is empty or ``per_seed`` is not a positive integer.
     """
+
+    if not seeds:
+        raise ValueError("seeds must be non-empty")
+    if per_seed <= 0:
+        raise ValueError("per_seed must be a positive integer")
 
     rng = random.Random(rng_seed)
     concepts: list[str] = []
