@@ -168,6 +168,114 @@ def _load_schemas(schema_dir: str | Path | None) -> tuple[dict, dict]:
     return schema, events_schema
 
 
+def _validate_and_prepare(
+    events: list,
+    cfg: dict,
+    prev_mode: str,
+    schema: dict | None = None,
+    events_schema: dict | None = None,
+    schema_dir: str | Path | None = None,
+) -> tuple[ReplayState, dict, float]:
+    """Return a prepared ``ReplayState`` after validating inputs.
+
+    The helper consolidates common validation and graph construction logic used
+    by both :func:`compute_metrics` and :meth:`StreamingReplay.metrics`.
+
+    Args:
+        events: Sequence of event dictionaries.
+        cfg: Configuration dictionary.
+        prev_mode: Previous operating mode.
+        schema: Pre-loaded configuration schema.
+        events_schema: Pre-loaded events schema.
+        schema_dir: Directory from which to load schemas when not provided.
+
+    Returns:
+        A tuple ``(state, weights, tau)`` where ``state`` is a fully populated
+        :class:`ReplayState`, ``weights`` is the validated weight mapping and
+        ``tau`` the sensitivity threshold.
+    """
+
+    if schema is None or events_schema is None:
+        schema, events_schema = _load_schemas(schema_dir)
+
+    try:
+        jsonschema.validate(cfg, schema)
+    except ValidationError as e:
+        print(f"Configuration error: {e.message}")
+        raise SystemExit(1)
+
+    try:
+        jsonschema.validate({"events": events}, events_schema)
+    except ValidationError as e:
+        print(f"Event file error: {e.message}")
+        raise SystemExit(1)
+
+    invariants = set(cfg.get("invariants", []))
+    states = cfg.get("states", [])
+    if prev_mode not in states:
+        raise SystemExit(f"Unknown previous mode: {prev_mode}")
+    if "NoWriteInHold" in invariants and prev_mode == "HOLD" and events:
+        raise SystemExit("Writes not allowed while in HOLD mode")
+    if "NoWriteInSAFE" in invariants and prev_mode == "SAFE" and events:
+        raise SystemExit("Writes not allowed while in SAFE mode")
+
+    state = ReplayState()
+    state.events = events
+
+    ids = [e["id"] for e in state.events]
+    if len(ids) != len(set(ids)):
+        seen = set()
+        duplicates = set()
+        for _id in ids:
+            if _id in seen:
+                duplicates.add(_id)
+            else:
+                seen.add(_id)
+        raise SystemExit(f"Duplicate event IDs: {sorted(duplicates)}")
+
+    prev_id: int | str | None = None
+    for eid in ids:
+        if prev_id is not None and "AppendOnlyMonotone" in invariants:
+            prev_int = _as_int(prev_id)
+            curr_int = _as_int(eid)
+            if prev_int is not None and curr_int is not None:
+                if curr_int <= prev_int:
+                    raise SystemExit(
+                        f"Event IDs must be monotone increasing: {eid} after {prev_id}"
+                    )
+            else:
+                if str(eid) <= str(prev_id):
+                    raise SystemExit(
+                        f"Event IDs must be monotone increasing: {eid} after {prev_id}"
+                    )
+        prev_id = eid
+
+    id2e = {e["id"]: e for e in state.events}
+
+    state.vertices = set(id2e.keys())
+    state.edges = set()
+    state.parent_edges = set()
+    for e in state.events:
+        for j in e.get("justifies", []):
+            if j not in state.vertices:
+                msg = f"Event {e['id']} justifies unknown event {j}"
+                raise SystemExit(msg)
+            state.edges.add((e["id"], j))
+        for p in e.get("parents", []):
+            if p in state.vertices:
+                state.parent_edges.add((p, e["id"]))
+
+    weights = cfg["weights"]
+    total = weights["w_g"] + weights["w_i"] + weights["w_r"]
+    if abs(total - 1.0) > 1e-6:
+        raise SystemExit(
+            f"Weights must sum to 1 (w_g + w_i + w_r = {total})"
+        )
+    tau = cfg["tau"]
+
+    return state, weights, tau
+
+
 class StreamingReplay:
     """Incrementally validate events and compute DIA metrics.
 
@@ -195,10 +303,11 @@ class StreamingReplay:
             print(f"Configuration error: {e.message}")
             raise SystemExit(1)
 
+        self.schema = schema
         self.events_schema = events_schema
         self.invariants = set(cfg.get("invariants", []))
-        states = cfg.get("states", [])
-        if prev_mode not in states:
+        self.states = cfg.get("states", [])
+        if prev_mode not in self.states:
             raise SystemExit(f"Unknown previous mode: {prev_mode}")
 
         self._last_id: int | str | None = None
@@ -263,25 +372,23 @@ class StreamingReplay:
     # ------------------------------------------------------------------
     def metrics(self) -> dict:
         """Return the DIA metrics for the current replay state."""
-        for _, v in self.state.edges | self.state.parent_edges:
-            if v not in self.state.vertices:
-                raise SystemExit(f"Event refers to unknown event {v}")
 
-        weights = self.cfg["weights"]
-        total = weights["w_g"] + weights["w_i"] + weights["w_r"]
-        if abs(total - 1.0) > 1e-6:
-            raise SystemExit(
-                f"Weights must sum to 1 (w_g + w_i + w_r = {total})"
-            )
-        tau = self.cfg["tau"]
+        state, weights, tau = _validate_and_prepare(
+            self.state.events,
+            self.cfg,
+            self.prev_mode,
+            schema=self.schema,
+            events_schema=self.events_schema,
+        )
+        self.state = state
 
-        G = dia_graph(self.state)
-        R = dia_replay(self.state)
-        info = dia_info(self.state)
+        G = dia_graph(state)
+        R = dia_replay(state)
+        info = dia_info(state)
         D = weights["w_g"] * G + weights["w_i"] * info + weights["w_r"] * R
 
         mode = "RUN"
-        if not replay_ok(self.state):
+        if not replay_ok(state):
             mode = "HOLD"
         elif D < self.prev_dia - tau:
             mode = "SAFE"
@@ -310,81 +417,12 @@ def compute_metrics(
         A dictionary containing individual metric components, the overall DIA
         value, and the selected mode.
     """
-    state = ReplayState()
-
-    schema, events_schema = _load_schemas(schema_dir)
-
-    try:
-        jsonschema.validate(cfg, schema)
-    except ValidationError as e:
-        print(f"Configuration error: {e.message}")
-        raise SystemExit(1)
-
-    try:
-        jsonschema.validate({"events": events}, events_schema)
-    except ValidationError as e:
-        print(f"Event file error: {e.message}")
-        raise SystemExit(1)
-
-    invariants = set(cfg.get("invariants", []))
-    states = cfg.get("states", [])
-    if prev_mode not in states:
-        raise SystemExit(f"Unknown previous mode: {prev_mode}")
-    if "NoWriteInHold" in invariants and prev_mode == "HOLD" and events:
-        raise SystemExit("Writes not allowed while in HOLD mode")
-    if "NoWriteInSAFE" in invariants and prev_mode == "SAFE" and events:
-        raise SystemExit("Writes not allowed while in SAFE mode")
-
-    state.events = events
-    ids = [e["id"] for e in state.events]
-    if len(ids) != len(set(ids)):
-        seen = set()
-        duplicates = set()
-        for _id in ids:
-            if _id in seen:
-                duplicates.add(_id)
-            else:
-                seen.add(_id)
-        raise SystemExit(f"Duplicate event IDs: {sorted(duplicates)}")
-    prev_id: int | str | None = None
-    for eid in ids:
-        if prev_id is not None and "AppendOnlyMonotone" in invariants:
-            prev_int = _as_int(prev_id)
-            curr_int = _as_int(eid)
-            if prev_int is not None and curr_int is not None:
-                if curr_int <= prev_int:
-                    raise SystemExit(
-                        f"Event IDs must be monotone increasing: {eid} after {prev_id}"
-                    )
-            else:
-                if str(eid) <= str(prev_id):
-                    raise SystemExit(
-                        f"Event IDs must be monotone increasing: {eid} after {prev_id}"
-                    )
-        prev_id = eid
-
-    id2e = {e["id"]: e for e in state.events}
-
-    state.vertices = set(id2e.keys())
-    state.edges = set()
-    state.parent_edges = set()
-    for e in state.events:
-        for j in e.get("justifies", []):
-            if j not in state.vertices:
-                msg = f"Event {e['id']} justifies unknown event {j}"
-                raise SystemExit(msg)
-            state.edges.add((e["id"], j))
-        for p in e.get("parents", []):
-            if p in state.vertices:
-                state.parent_edges.add((p, e["id"]))
-
-    weights = cfg["weights"]
-    total = weights["w_g"] + weights["w_i"] + weights["w_r"]
-    if abs(total - 1.0) > 1e-6:
-        raise SystemExit(
-            f"Weights must sum to 1 (w_g + w_i + w_r = {total})"
-        )
-    tau = cfg["tau"]
+    state, weights, tau = _validate_and_prepare(
+        events,
+        cfg,
+        prev_mode,
+        schema_dir=schema_dir,
+    )
 
     G = dia_graph(state)
     R = dia_replay(state)
@@ -396,9 +434,8 @@ def compute_metrics(
     mode = "RUN"
     if not replay_ok(state):
         mode = "HOLD"
-    else:
-        if D < prev_dia - tau:
-            mode = "SAFE"
+    elif D < prev_dia - tau:
+        mode = "SAFE"
 
     result["mode"] = mode
 
