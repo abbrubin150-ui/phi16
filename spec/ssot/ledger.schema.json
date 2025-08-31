@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Phi16 Ledger Schema",
+  "type": "object",
+  "properties": {
+    "header": {
+      "type": "object",
+      "properties": {
+        "last_hash": {"type": "string"},
+        "last_dia": {"type": "number"},
+        "mode": {"type": "string"}
+      },
+      "required": ["last_hash", "last_dia", "mode"],
+      "additionalProperties": false
+    },
+    "blocks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "data": {"type": "object"},
+          "prev_hash": {"type": "string"},
+          "ts": {"type": "number"}
+        },
+        "required": ["data", "prev_hash", "ts"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["header", "blocks"],
+  "additionalProperties": false
+}

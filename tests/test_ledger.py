@@ -12,6 +12,7 @@ from ledger import (
     append_batch,
     replay_batch,
     hash_block,
+    load_ledger,
 )
 
 
@@ -103,3 +104,16 @@ def test_append_reject_in_protected_modes(ledger_path, mode, append_fn):
     )
     with pytest.raises(SystemExit):
         append_fn(ledger_path, [{"id": "0", "type": "A"}], CFG)
+
+
+def test_load_ledger_schema_validation_failure(ledger_path):
+    ledger_path.write_text(json.dumps({"blocks": []}))
+    with pytest.raises(SystemExit):
+        load_ledger(ledger_path)
+
+
+def test_replay_batch_schema_type_failure(ledger_path):
+    bad = {"header": {"last_hash": "", "last_dia": "x", "mode": "RUN"}, "blocks": []}
+    ledger_path.write_text(json.dumps(bad))
+    with pytest.raises(SystemExit):
+        replay_batch(ledger_path, CFG)
