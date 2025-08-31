@@ -208,7 +208,11 @@ class StreamingReplay:
         if "NoWriteInSAFE" in self.invariants and self.prev_mode == "SAFE":
             raise SystemExit("Writes not allowed while in SAFE mode")
 
-        jsonschema.validate({"events": [event]}, self.events_schema)
+        try:
+            jsonschema.validate({"events": [event]}, self.events_schema)
+        except ValidationError as e:
+            print(f"Event file error: {e.message}")
+            raise SystemExit(1)
 
         eid = event["id"]
         if self._last_id is not None and "AppendOnlyMonotone" in self.invariants:
