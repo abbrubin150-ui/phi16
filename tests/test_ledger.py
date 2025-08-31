@@ -133,3 +133,23 @@ def test_replay_batch_schema_type_failure(ledger_path):
     ledger_path.write_text(json.dumps(bad))
     with pytest.raises(SystemExit):
         replay_batch(ledger_path, CFG)
+
+
+def test_load_ledger_block_schema_failure(ledger_path):
+    bad = {
+        "header": {"last_hash": "", "last_dia": 1.0, "mode": "RUN"},
+        "blocks": [{"data": {}, "ts": 0}],
+    }
+    ledger_path.write_text(json.dumps(bad))
+    with pytest.raises(SystemExit):
+        load_ledger(ledger_path)
+
+
+def test_replay_batch_block_type_failure(ledger_path):
+    bad = {
+        "header": {"last_hash": "", "last_dia": 1.0, "mode": "RUN"},
+        "blocks": [{"data": {}, "prev_hash": "", "ts": "zero"}],
+    }
+    ledger_path.write_text(json.dumps(bad))
+    with pytest.raises(SystemExit):
+        replay_batch(ledger_path, CFG)
