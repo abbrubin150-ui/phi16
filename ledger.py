@@ -14,7 +14,7 @@ from sim_replay import StreamingReplay, compute_metrics
 def hash_block(block: dict) -> str:
     """Return SHA256 hash of ``block``."""
 
-    payload = json.dumps(block, sort_keys=True).encode()
+    payload = json.dumps(block, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(payload).hexdigest()
 
 

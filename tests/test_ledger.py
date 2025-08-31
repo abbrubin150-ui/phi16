@@ -11,6 +11,7 @@ from ledger import (
     replay_stream,
     append_batch,
     replay_batch,
+    hash_block,
 )
 
 
@@ -36,6 +37,14 @@ def ledger_path(tmp_path):
     yield path
     if path.exists():
         path.unlink()
+
+
+def test_hash_block_deterministic():
+    block = {"data": {"id": "0", "type": "A"}, "prev_hash": "", "ts": 1}
+    expected = "fce43b7a4ba4d132888bf6053d595d6bd9a327179dceb9ea286ea19bd1d2dd15"
+    h1 = hash_block(block)
+    h2 = hash_block(block)
+    assert h1 == h2 == expected
 
 
 def test_hash_chain_validation_failure(ledger_path):
