@@ -38,3 +38,14 @@ def test_generation_is_deterministic_with_seed():
     second = generate(["x", "y"], rng_seed=123)
     assert first.concepts == second.concepts
     assert first.distribution == second.distribution
+
+
+def test_entropy_rejects_invalid_total():
+    with pytest.raises(ValueError):
+        entropy([0.4, 0.4])
+
+
+def test_entropy_accepts_total_close_to_one():
+    p = [0.1] * 10
+    expected = -sum(pi * math.log2(pi) for pi in p if pi > 0)
+    assert entropy(p) == pytest.approx(expected)
