@@ -223,6 +223,19 @@ def test_event_schema_validation(tmp_path, capsys):
     assert "Event file error" in captured.out
 
 
+def test_streaming_add_event_validation(capsys):
+    repo_root = Path(__file__).resolve().parents[1]
+    cfg_path = repo_root / "spec" / "ssot" / "phi16.instance.json"
+    cfg = json.loads(cfg_path.read_text())
+    sim = StreamingReplay(cfg)
+    bad_event = {"id": 1, "type": "Init"}
+    with pytest.raises(SystemExit) as excinfo:
+        sim.add_event(bad_event)
+    assert excinfo.value.code == 1
+    captured = capsys.readouterr()
+    assert "Event file error" in captured.out
+
+
 def test_main_from_different_working_directory(tmp_path, monkeypatch):
     repo_root = Path(__file__).resolve().parents[1]
     events_path = repo_root / "examples" / "events.json"
