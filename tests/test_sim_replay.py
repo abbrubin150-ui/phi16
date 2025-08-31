@@ -207,6 +207,29 @@ def test_weight_sum_validation(tmp_path):
     assert "Weights must sum to 1" in str(excinfo.value)
 
 
+def test_invalid_config_consistency():
+    events = [{"id": "e1", "parents": [], "type": "X"}]
+    cfg = {
+        "N": 16,
+        "EPS": 0,
+        "tau": 0.0,
+        "weights": {"w_g": 0.5, "w_i": 0.4, "w_r": 0.2},
+        "states": ["RUN", "HOLD", "SAFE"],
+        "invariants": ["AppendOnlyMonotone"],
+        "ports": ["sim"],
+    }
+
+    with pytest.raises(SystemExit) as exc_batch:
+        compute_metrics(events, cfg)
+
+    sim = StreamingReplay(cfg)
+    sim.add_event(events[0])
+    with pytest.raises(SystemExit) as exc_stream:
+        sim.metrics()
+
+    assert str(exc_batch.value) == str(exc_stream.value)
+
+
 def test_event_schema_validation(tmp_path, capsys):
     cfg_path = (
         Path(__file__).resolve().parents[1]
