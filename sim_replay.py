@@ -3,7 +3,7 @@ import json
 import hashlib
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
-from math import log2
+from math import log2, isclose
 from pathlib import Path
 from typing import Iterable, List, Optional
 
@@ -99,12 +99,15 @@ def entropy(p: Iterable[float]) -> float:
         Entropy in bits.
 
     Raises:
-        ValueError: If any probability is negative.
+        ValueError: If probabilities are negative or do not sum to 1.
     """
 
     probabilities = list(p)
     if any(pi < 0 for pi in probabilities):
         raise ValueError("probabilities must be non-negative")
+    total = sum(probabilities)
+    if not isclose(total, 1.0):
+        raise ValueError("probabilities must sum to 1.0")
     return -sum(pi * log2(pi) for pi in probabilities if pi > 0)
 
 
