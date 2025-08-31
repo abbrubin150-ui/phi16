@@ -180,9 +180,10 @@ def test_parent_edges_cycle_detection():
 
 
 def test_weight_sum_validation(tmp_path):
-    events_path = (
-        Path(__file__).resolve().parents[1] / "examples" / "events.json"
-    )
+    events = {"events": [{"id": "e1", "type": "X"}]}
+    events_path = tmp_path / "events.json"
+    events_path.write_text(json.dumps(events))
+
     cfg = {
         "N": 16,
         "EPS": 0,
@@ -199,11 +200,14 @@ def test_weight_sum_validation(tmp_path):
     }
     cfg_path = tmp_path / "cfg.json"
     cfg_path.write_text(json.dumps(cfg))
+
     schema_src = Path(__file__).resolve().parents[1] / "spec" / "ssot"
     for name in ["phi16.schema.json", "events.schema.json"]:
         shutil.copy(schema_src / name, tmp_path / name)
+
     with pytest.raises(SystemExit) as excinfo:
         main(str(events_path), str(cfg_path))
+
     assert "Weights must sum to 1" in str(excinfo.value)
 
 
@@ -268,6 +272,33 @@ def test_prev_mode_not_in_states():
 
     with pytest.raises(SystemExit):
         StreamingReplay(cfg, prev_mode="SAFE")
+
+
+def test_prev_mode_not_in_states_main(tmp_path):
+    events = {"events": [{"id": "e1", "type": "X"}]}
+    events_path = tmp_path / "events.json"
+    events_path.write_text(json.dumps(events))
+
+    cfg = {
+        "N": 16,
+        "EPS": 0,
+        "tau": 0.0,
+        "weights": {"w_g": 0.6, "w_i": 0.2, "w_r": 0.2},
+        "states": ["RUN"],
+        "invariants": ["AppendOnlyMonotone"],
+        "ports": ["sim"],
+    }
+    cfg_path = tmp_path / "cfg.json"
+    cfg_path.write_text(json.dumps(cfg))
+
+    schema_src = Path(__file__).resolve().parents[1] / "spec" / "ssot"
+    for name in ["phi16.schema.json", "events.schema.json"]:
+        shutil.copy(schema_src / name, tmp_path / name)
+
+    with pytest.raises(SystemExit) as excinfo:
+        main(str(events_path), str(cfg_path), prev_mode="SAFE")
+
+    assert "Unknown previous mode" in str(excinfo.value)
 
 
 def test_event_schema_validation(tmp_path, capsys):

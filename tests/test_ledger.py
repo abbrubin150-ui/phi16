@@ -108,8 +108,9 @@ def test_append_weight_sum_validation(ledger_path, append_fn):
         "ports": ["sim"],
     }
     events = [{"id": "0", "type": "A"}]
-    with pytest.raises(SystemExit):
+    with pytest.raises(SystemExit) as excinfo:
         append_fn(ledger_path, events, bad_cfg)
+    assert "Weights must sum to 1" in str(excinfo.value)
 
 
 @pytest.mark.parametrize("mode", ["HOLD", "SAFE"])
