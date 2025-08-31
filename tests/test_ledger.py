@@ -96,6 +96,22 @@ def test_batch_hash_chain_validation_failure(ledger_path):
         replay_batch(ledger_path, CFG)
 
 
+@pytest.mark.parametrize("append_fn", [append_stream, append_batch])
+def test_append_weight_sum_validation(ledger_path, append_fn):
+    bad_cfg = {
+        "N": 16,
+        "EPS": 0,
+        "tau": 0.0,
+        "weights": {"w_g": 0.5, "w_i": 0.4, "w_r": 0.2},
+        "states": ["RUN"],
+        "invariants": ["AppendOnlyMonotone"],
+        "ports": ["sim"],
+    }
+    events = [{"id": "0", "type": "A"}]
+    with pytest.raises(SystemExit):
+        append_fn(ledger_path, events, bad_cfg)
+
+
 @pytest.mark.parametrize("mode", ["HOLD", "SAFE"])
 @pytest.mark.parametrize("append_fn", [append_stream, append_batch])
 def test_append_reject_in_protected_modes(ledger_path, mode, append_fn):
