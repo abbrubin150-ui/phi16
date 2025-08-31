@@ -9,6 +9,9 @@ import hashlib
 from pathlib import Path
 from typing import Iterable
 
+import jsonschema
+from jsonschema import ValidationError
+
 from sim_replay import StreamingReplay, compute_metrics
 
 
@@ -19,14 +22,30 @@ def hash_block(block: dict) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
+def _ledger_schema() -> dict:
+    schema_path = Path(__file__).parent / "spec" / "ssot" / "ledger.schema.json"
+    return json.loads(schema_path.read_text())
+
+
+def _validate_ledger(ledger: dict) -> None:
+    schema = _ledger_schema()
+    try:
+        jsonschema.validate(ledger, schema)
+    except ValidationError as e:
+        raise SystemExit(f"Invalid ledger: {e.message}")
+
+
 def load_ledger(path: str | Path) -> dict:
     p = Path(path)
     if p.exists():
-        return json.loads(p.read_text())
-    return {
-        "header": {"last_hash": "", "last_dia": 1.0, "mode": "RUN"},
-        "blocks": [],
-    }
+        ledger = json.loads(p.read_text())
+    else:
+        ledger = {
+            "header": {"last_hash": "", "last_dia": 1.0, "mode": "RUN"},
+            "blocks": [],
+        }
+    _validate_ledger(ledger)
+    return ledger
 
 
 def save_ledger(ledger: dict, path: str | Path) -> None:
@@ -137,6 +156,7 @@ def replay_batch(
     """Replay ledger in batch verifying the hash chain."""
 
     ledger = load_ledger(path)
+    _validate_ledger(ledger)
     last = None
     for blk in ledger["blocks"]:
         if last is not None and blk["prev_hash"] != last:
