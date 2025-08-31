@@ -83,7 +83,13 @@ def append_batch(
 
     existing = [b["data"] for b in ledger["blocks"]]
     all_events = existing + list(events)
-    metrics = compute_metrics(all_events, cfg, schema_dir=schema_dir)
+    metrics = compute_metrics(
+        all_events,
+        cfg,
+        prev_dia=ledger["header"]["last_dia"],
+        prev_mode=ledger["header"]["mode"],
+        schema_dir=schema_dir,
+    )
 
     last_hash = ledger["header"]["last_hash"]
     for ev in events:
