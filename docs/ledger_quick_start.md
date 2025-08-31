@@ -59,3 +59,16 @@ assert replayed == metrics
 
 The `dia` value in the returned metrics represents the
 normalised entropy of the event stream.
+
+## Command‑line interface
+
+The `ledger.py` module includes a small CLI.  Each command prints the
+resulting metrics as JSON:
+
+```bash
+python ledger.py append-stream ledger.json examples/events.json cfg.json
+python ledger.py replay-stream ledger.json cfg.json
+```
+
+The `append-batch` and `replay-batch` subcommands perform the same
+operations but recompute metrics in batch mode.
