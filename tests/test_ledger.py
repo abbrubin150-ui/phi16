@@ -84,3 +84,13 @@ def test_batch_hash_chain_validation_failure(ledger_path):
     ledger_path.write_text(json.dumps(data))
     with pytest.raises(SystemExit):
         replay_batch(ledger_path, CFG)
+
+
+@pytest.mark.parametrize("mode", ["HOLD", "SAFE"])
+@pytest.mark.parametrize("append_fn", [append_stream, append_batch])
+def test_append_reject_in_protected_modes(ledger_path, mode, append_fn):
+    ledger_path.write_text(
+        json.dumps({"header": {"last_hash": "", "last_dia": 1.0, "mode": mode}, "blocks": []})
+    )
+    with pytest.raises(SystemExit):
+        append_fn(ledger_path, [{"id": "0", "type": "A"}], CFG)
