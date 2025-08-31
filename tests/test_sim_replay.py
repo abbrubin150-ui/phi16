@@ -282,6 +282,57 @@ def test_append_only_violation():
     assert "monotone increasing" in str(excinfo.value)
 
 
+def test_numeric_ids_monotonic():
+    events = [
+        {"id": "1", "parents": [], "type": "X"},
+        {"id": "2", "parents": [], "type": "X"},
+        {"id": "10", "parents": [], "type": "X"},
+    ]
+    cfg = {
+        "N": 16,
+        "EPS": 0,
+        "tau": 0.0,
+        "weights": {"w_g": 0.5, "w_i": 0.3, "w_r": 0.2},
+        "states": ["RUN", "HOLD", "SAFE"],
+        "invariants": ["AppendOnlyMonotone"],
+        "ports": ["sim"],
+    }
+    result = compute_metrics(events, cfg)
+    assert result["replay"] == pytest.approx(1.0)
+
+    sim = StreamingReplay(cfg)
+    for ev in events:
+        sim.add_event(ev)
+    assert sim.metrics()["replay"] == pytest.approx(1.0)
+
+
+def test_numeric_ids_violation():
+    events = [
+        {"id": "1", "parents": [], "type": "X"},
+        {"id": "10", "parents": [], "type": "X"},
+        {"id": "2", "parents": [], "type": "X"},
+    ]
+    cfg = {
+        "N": 16,
+        "EPS": 0,
+        "tau": 0.0,
+        "weights": {"w_g": 0.5, "w_i": 0.3, "w_r": 0.2},
+        "states": ["RUN", "HOLD", "SAFE"],
+        "invariants": ["AppendOnlyMonotone"],
+        "ports": ["sim"],
+    }
+    with pytest.raises(SystemExit) as excinfo:
+        compute_metrics(events, cfg)
+    assert "monotone increasing" in str(excinfo.value)
+
+    sim = StreamingReplay(cfg)
+    sim.add_event(events[0])
+    sim.add_event(events[1])
+    with pytest.raises(SystemExit) as excinfo2:
+        sim.add_event(events[2])
+    assert "monotone increasing" in str(excinfo2.value)
+
+
 def test_no_write_in_hold():
     events = [{"id": "e1", "parents": [], "type": "X"}]
     cfg = {
