@@ -140,6 +140,19 @@ def block_hash(block: dict) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
+def _as_int(eid: object) -> int | None:
+    """Return ``int(eid)`` if ``eid`` is digit-only, else ``None``.
+
+    The function accepts both integer and string identifiers. If the value is a
+    string consisting solely of decimal digits, it is converted to ``int``.
+    Non-numeric identifiers result in ``None`` so callers can fall back to
+    lexicographic comparisons.
+    """
+
+    s = str(eid)
+    return int(s) if s.isdigit() else None
+
+
 def _load_schemas(schema_dir: str | Path | None) -> tuple[dict, dict]:
     """Return the configuration and events schemas."""
 
@@ -188,7 +201,7 @@ class StreamingReplay:
         if prev_mode not in states:
             raise SystemExit(f"Unknown previous mode: {prev_mode}")
 
-        self._last_id: str | None = None
+        self._last_id: int | str | None = None
         self._head_hash: str | None = None
 
     # ------------------------------------------------------------------
@@ -222,10 +235,18 @@ class StreamingReplay:
 
         eid = event["id"]
         if self._last_id is not None and "AppendOnlyMonotone" in self.invariants:
-            if str(eid) <= str(self._last_id):
-                raise SystemExit(
-                    f"Event IDs must be monotone increasing: {eid} after {self._last_id}"
-                )
+            prev_int = _as_int(self._last_id)
+            curr_int = _as_int(eid)
+            if prev_int is not None and curr_int is not None:
+                if curr_int <= prev_int:
+                    raise SystemExit(
+                        f"Event IDs must be monotone increasing: {eid} after {self._last_id}"
+                    )
+            else:
+                if str(eid) <= str(self._last_id):
+                    raise SystemExit(
+                        f"Event IDs must be monotone increasing: {eid} after {self._last_id}"
+                    )
 
         if eid in self.state.vertices:
             raise SystemExit(f"Duplicate event ID: {eid}")
@@ -325,13 +346,21 @@ def compute_metrics(
             else:
                 seen.add(_id)
         raise SystemExit(f"Duplicate event IDs: {sorted(duplicates)}")
-    prev_id: str | None = None
+    prev_id: int | str | None = None
     for eid in ids:
         if prev_id is not None and "AppendOnlyMonotone" in invariants:
-            if str(eid) <= str(prev_id):
-                raise SystemExit(
-                    f"Event IDs must be monotone increasing: {eid} after {prev_id}"
-                )
+            prev_int = _as_int(prev_id)
+            curr_int = _as_int(eid)
+            if prev_int is not None and curr_int is not None:
+                if curr_int <= prev_int:
+                    raise SystemExit(
+                        f"Event IDs must be monotone increasing: {eid} after {prev_id}"
+                    )
+            else:
+                if str(eid) <= str(prev_id):
+                    raise SystemExit(
+                        f"Event IDs must be monotone increasing: {eid} after {prev_id}"
+                    )
         prev_id = eid
 
     id2e = {e["id"]: e for e in state.events}
