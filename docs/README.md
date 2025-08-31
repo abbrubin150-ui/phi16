@@ -4,6 +4,7 @@
 - **A2 (שלד אינבריאנטים):** [A2_invariants.md](./A2_invariants.md)
 - **DIA (הסבר):** [DIA_nonmath.md](./DIA_nonmath.md)
 - **OpenDecision-SSM (הפעלה):** [OpenDecision_SSM_ops.md](./OpenDecision_SSM_ops.md)
+- **Ledger Quick Start:** [ledger_quick_start.md](./ledger_quick_start.md)
 
 **Specs**
 - TLA+: `spec/tla/` — כולל Handshake + DIA
