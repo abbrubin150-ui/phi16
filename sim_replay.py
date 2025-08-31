@@ -136,7 +136,7 @@ def dia_info(state: ReplayState) -> float:
 def block_hash(block: dict) -> str:
     """Return the SHA256 hash of ``block``."""
 
-    payload = json.dumps(block, sort_keys=True).encode()
+    payload = json.dumps(block, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(payload).hexdigest()
 
 
