@@ -230,6 +230,46 @@ def test_invalid_config_consistency():
     assert str(exc_batch.value) == str(exc_stream.value)
 
 
+def test_weight_sum_validation_minimal():
+    events = [{"id": "e1", "type": "X"}]
+    cfg = {
+        "N": 16,
+        "EPS": 0,
+        "tau": 0.0,
+        "weights": {"w_g": 0.5, "w_i": 0.4, "w_r": 0.2},
+        "states": ["RUN"],
+        "invariants": ["AppendOnlyMonotone"],
+        "ports": ["sim"],
+    }
+
+    with pytest.raises(SystemExit):
+        compute_metrics(events, cfg)
+
+    sim = StreamingReplay(cfg)
+    sim.add_event(events[0])
+    with pytest.raises(SystemExit):
+        sim.metrics()
+
+
+def test_prev_mode_not_in_states():
+    events = [{"id": "e1", "type": "X"}]
+    cfg = {
+        "N": 16,
+        "EPS": 0,
+        "tau": 0.0,
+        "weights": {"w_g": 0.5, "w_i": 0.3, "w_r": 0.2},
+        "states": ["RUN"],
+        "invariants": ["AppendOnlyMonotone"],
+        "ports": ["sim"],
+    }
+
+    with pytest.raises(SystemExit):
+        compute_metrics(events, cfg, prev_mode="SAFE")
+
+    with pytest.raises(SystemExit):
+        StreamingReplay(cfg, prev_mode="SAFE")
+
+
 def test_event_schema_validation(tmp_path, capsys):
     cfg_path = (
         Path(__file__).resolve().parents[1]
