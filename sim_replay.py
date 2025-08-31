@@ -140,6 +140,21 @@ def block_hash(block: dict) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
+def _load_schemas(schema_dir: str | Path | None) -> tuple[dict, dict]:
+    """Return the configuration and events schemas."""
+
+    schema_base = (
+        Path(schema_dir)
+        if schema_dir is not None
+        else Path(__file__).resolve().parent / "spec" / "ssot"
+    )
+    with open(schema_base / "phi16.schema.json", "r") as f:
+        schema = json.load(f)
+    with open(schema_base / "events.schema.json", "r") as f:
+        events_schema = json.load(f)
+    return schema, events_schema
+
+
 class StreamingReplay:
     """Incrementally validate events and compute DIA metrics.
 
@@ -159,16 +174,7 @@ class StreamingReplay:
         self.cfg = cfg
         self.prev_dia = prev_dia
         self.prev_mode = prev_mode
-
-        schema_base = (
-            Path(schema_dir)
-            if schema_dir is not None
-            else Path(__file__).resolve().parent / "spec" / "ssot"
-        )
-        with open(schema_base / "phi16.schema.json", "r") as f:
-            schema = json.load(f)
-        with open(schema_base / "events.schema.json", "r") as f:
-            events_schema = json.load(f)
+        schema, events_schema = _load_schemas(schema_dir)
 
         try:
             jsonschema.validate(cfg, schema)
@@ -283,18 +289,9 @@ def compute_metrics(
         A dictionary containing individual metric components, the overall DIA
         value, and the selected mode.
     """
-
     state = ReplayState()
 
-    schema_base = (
-        Path(schema_dir)
-        if schema_dir is not None
-        else Path(__file__).resolve().parent / "spec" / "ssot"
-    )
-    with open(schema_base / "phi16.schema.json", "r") as f:
-        schema = json.load(f)
-    with open(schema_base / "events.schema.json", "r") as f:
-        events_schema = json.load(f)
+    schema, events_schema = _load_schemas(schema_dir)
 
     try:
         jsonschema.validate(cfg, schema)
