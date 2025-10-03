@@ -20,7 +20,8 @@ def _normalise(values: Sequence[float]) -> list[float]:
     """Return ``values`` scaled to sum to ``1.0``.
 
     Any negative entries raise ``ValueError``.  Zero totals yield an empty
-    distribution which results in an entropy of ``0.0``.
+    distribution which callers should interpret as a zero-entropy case
+    without delegating to :func:`sim_replay.entropy`.
     """
 
     if any(v < 0 for v in values):
@@ -32,7 +33,11 @@ def _normalise(values: Sequence[float]) -> list[float]:
 
 
 def distribution_from_concepts(concepts: Iterable[str]) -> list[float]:
-    """Convert ``concepts`` into a probability distribution."""
+    """Convert ``concepts`` into a probability distribution.
+
+    Empty inputs result in an empty distribution; callers may short-circuit
+    rather than calling :func:`sim_replay.entropy`.
+    """
 
     counts = Counter(concepts)
     return _normalise(list(counts.values()))
@@ -41,12 +46,16 @@ def distribution_from_concepts(concepts: Iterable[str]) -> list[float]:
 def concept_entropy(concepts: Iterable[str]) -> float:
     """Shannon entropy of ``concepts``.
 
-    ``concepts`` may contain repeated labels.  The function converts the
-    sequence into a distribution and delegates the actual calculation to
+    ``concepts`` may contain repeated labels.  Empty inputs short-circuit to
+    ``0.0`` without invoking :func:`sim_replay.entropy`.  Non-empty
+    collections are converted into a distribution before delegating to
     :func:`sim_replay.entropy`.
     """
 
-    return entropy(distribution_from_concepts(concepts))
+    distribution = distribution_from_concepts(concepts)
+    if not distribution:
+        return 0.0
+    return entropy(distribution)
 
 
 def normalised_entropy(concepts: Iterable[str]) -> float:

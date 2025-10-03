@@ -8,6 +8,7 @@ import pytest
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from sim_replay import entropy  # noqa: E402
+from generative.entropy_tools import concept_entropy, distribution_from_concepts  # noqa: E402
 from generative.protocol import generate  # noqa: E402
 
 
@@ -61,3 +62,8 @@ def test_entropy_accepts_total_close_to_one():
     p = [0.1] * 10
     expected = -sum(pi * math.log2(pi) for pi in p if pi > 0)
     assert entropy(p) == pytest.approx(expected)
+
+
+def test_concept_entropy_empty_input_returns_zero():
+    assert concept_entropy([]) == 0.0
+    assert distribution_from_concepts([]) == []
