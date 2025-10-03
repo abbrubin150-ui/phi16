@@ -393,6 +393,9 @@ class StreamingReplay:
         elif D < self.prev_dia - tau:
             mode = "SAFE"
 
+        self.prev_dia = D
+        self.prev_mode = mode
+
         return {"graph": G, "replay": R, "info": info, "dia": D, "mode": mode}
 
 

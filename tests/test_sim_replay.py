@@ -330,6 +330,41 @@ def test_streaming_add_event_validation(capsys):
     assert "Event file error" in captured.out
 
 
+def test_streaming_protected_mode_refresh():
+    cfg = {
+        "N": 16,
+        "EPS": 0,
+        "tau": 0.05,
+        "weights": {"w_g": 1.0, "w_i": 0.0, "w_r": 0.0},
+        "states": ["RUN", "SAFE"],
+        "invariants": ["NoWriteInSAFE", "AppendOnlyMonotone"],
+        "ports": ["sim"],
+    }
+
+    sim = StreamingReplay(cfg, prev_dia=1.0, prev_mode="RUN")
+    sim.add_event({"id": "e1", "parents": [], "type": "X"})
+
+    metrics = sim.metrics()
+    assert metrics["mode"] == "SAFE"
+    assert sim.prev_mode == "SAFE"
+    assert sim.prev_dia == pytest.approx(metrics["dia"])
+
+    with pytest.raises(SystemExit) as excinfo:
+        sim.add_event({"id": "e2", "parents": [], "type": "Y"})
+
+    assert "SAFE mode" in str(excinfo.value)
+
+    # Remove the write-protection invariant to allow recomputing metrics.
+    sim.cfg["invariants"].remove("NoWriteInSAFE")
+    sim.invariants.discard("NoWriteInSAFE")
+
+    follow_up = sim.metrics()
+    assert follow_up["mode"] == "RUN"
+    assert sim.prev_mode == "RUN"
+    assert follow_up["dia"] == pytest.approx(metrics["dia"])
+    assert sim.prev_dia == pytest.approx(follow_up["dia"])
+
+
 def test_main_from_different_working_directory(tmp_path, monkeypatch):
     repo_root = Path(__file__).resolve().parents[1]
     events_path = repo_root / "examples" / "events.json"
