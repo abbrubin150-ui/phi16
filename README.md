@@ -1,5 +1,60 @@
 # Φ-OS: An AI-Based Operating System Master Plan - An Architecture for Verifiable Knowledge (Extended Version)
 
+## 🌟 New: Hebrew Token System Integration
+
+**Φ-OS now includes complete integration with the Hebrew Token System**, providing ethical governance across all system operations.
+
+- **📚 Documentation**: [Φ-OS + Token System Integration Guide](docs/phi_os_token_integration.md)
+- **🚀 Demo**: `python examples/phi_os_integration_demo.py`
+- **🔧 Integration Modules**: `tokens/integrations/`
+
+### What's New
+
+The Hebrew Token System maps to all three Φ-OS pillars:
+
+1. **R/DIA Integration** (`rdia_integration.py`)
+   - T01 (Data) → Ledger operations
+   - T10 (Measure) → DIA metrics
+   - T11 (Monitor) → Continuous monitoring
+   - T04 (Storage) → Ledger persistence
+
+2. **NAND-only Integration** (`nand_integration.py`)
+   - T09 (Standardize) → NAND-only policy enforcement
+   - T03 (Compute) → NAND-based computation
+   - All operations formally verifiable via NAND gates
+
+3. **Multi-agent Integration** (`agent_integration.py`)
+   - T15 (Seriousness) → HOLD state control
+   - T13 (Rights) → A1-ס Ethical Guardian
+   - T08 (Govern) → A1 Substantive Approver
+   - T07 (Automation) → B1 Actuator
+   - T11 (Monitor) → B2 Safety Monitor
+
+### Quick Start
+
+```python
+from tokens.system import HebrewTokenSystem
+
+# Initialize
+system = HebrewTokenSystem()
+system.initialize()
+system.enable_phi_os_integration()
+
+# Process request through complete Φ-OS pipeline
+result = system.process_phi_os_request({
+    "action": "add_user",
+    "data": {"user_id": "123"},
+    "evidence": "Registration form"
+})
+
+# Full audit trail with token-based governance
+print(result['audit_trail'])
+```
+
+**Result**: A provably ethical, verifiable, and accountable AI system where ethics structurally prevails over efficiency.
+
+---
+
 ## Introduction: The Vision of Φ-OS - An OS for Verifiable Knowledge
 
 This document outlines the architectural and philosophical foundation for a new type of Operating System (OS), dubbed **Φ-OS** (Phi-OS). This is not merely a software design but a blueprint for an **epistemological engine** – a system whose primary function is the creation, verification, and management of **verifiable knowledge** in complex, high-stakes environments. The system is intended to serve as a pseudo-code foundation for an AI capable of programming, providing it with a rigorous, complete, and formally verifiable logical framework.

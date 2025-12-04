@@ -22,6 +22,12 @@ from .registry import TokenRegistry
 from .constraints import ConstraintEnforcer
 from .hierarchy import HierarchyController
 from .moral_triangle import MoralTriangle
+from .integrations import (
+    RDIAIntegration,
+    NANDIntegration,
+    AgentWorkflowIntegration,
+    PhiOSIntegration
+)
 
 # Import all token classes
 from .t15_seriousness import SeriousnessToken
@@ -46,7 +52,15 @@ class HebrewTokenSystem:
         self.constraint_enforcer: Optional[ConstraintEnforcer] = None
         self.hierarchy_controller: Optional[HierarchyController] = None
         self.moral_triangle: Optional[MoralTriangle] = None
+
+        # Φ-OS Integrations
+        self.phi_os: Optional[PhiOSIntegration] = None
+        self.rdia: Optional[RDIAIntegration] = None
+        self.nand: Optional[NANDIntegration] = None
+        self.agents: Optional[AgentWorkflowIntegration] = None
+
         self._initialized = False
+        self._phi_os_enabled = False
 
     def initialize(self) -> None:
         """
@@ -312,3 +326,114 @@ class HebrewTokenSystem:
         print()
 
         print("=" * 80)
+
+    # ========== Φ-OS Integration Methods ==========
+
+    def enable_phi_os_integration(self) -> None:
+        """
+        Enable Φ-OS integration with R/DIA, NAND-only, and Multi-agent workflow.
+
+        This connects the Hebrew Token System to the complete Φ-OS architecture,
+        enabling accountability (R/DIA), verifiability (NAND-only), and
+        separation of powers (Multi-agent).
+        """
+        if not self._initialized:
+            raise RuntimeError("System must be initialized before enabling Φ-OS integration")
+
+        if self._phi_os_enabled:
+            print("Φ-OS integration already enabled")
+            return
+
+        print("Enabling Φ-OS integration...")
+
+        # Initialize integration modules
+        self.rdia = RDIAIntegration(self)
+        self.nand = NANDIntegration(self)
+        self.agents = AgentWorkflowIntegration(self)
+        self.phi_os = PhiOSIntegration(self)
+
+        self._phi_os_enabled = True
+
+        print("✓ Φ-OS integration enabled")
+        print("  - R/DIA: Memory = Accountability")
+        print("  - NAND-only: Verifiable Simplicity")
+        print("  - Multi-agent: Proposal ≠ Commitment")
+        print()
+
+    def process_phi_os_request(self, request: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Process a request through the complete Φ-OS pipeline.
+
+        Args:
+            request: Request with action and data
+
+        Returns:
+            dict: Processing result with audit trail
+        """
+        if not self._phi_os_enabled:
+            raise RuntimeError("Φ-OS integration not enabled. Call enable_phi_os_integration() first.")
+
+        return self.phi_os.process_request(request)
+
+    def get_phi_os_status(self) -> Dict[str, Any]:
+        """
+        Get comprehensive Φ-OS integration status.
+
+        Returns:
+            dict: System state across all integrations
+        """
+        if not self._phi_os_enabled:
+            return {'error': 'Φ-OS integration not enabled'}
+
+        return self.phi_os.validate_system_state()
+
+    def replay_phi_os_system(self) -> Dict[str, Any]:
+        """
+        Replay entire Φ-OS system from ledger.
+
+        Returns:
+            dict: Full system replay result
+        """
+        if not self._phi_os_enabled:
+            return {'error': 'Φ-OS integration not enabled'}
+
+        return self.phi_os.replay_full_system()
+
+    def phi_os_emergency_hold(self, reason: str) -> bool:
+        """
+        Trigger emergency HOLD via T15 and Φ-OS.
+
+        Args:
+            reason: Reason for emergency
+
+        Returns:
+            bool: True if HOLD activated
+        """
+        if not self._phi_os_enabled:
+            raise RuntimeError("Φ-OS integration not enabled")
+
+        return self.phi_os.emergency_hold(reason)
+
+    def phi_os_resume_operations(self) -> bool:
+        """
+        Resume Φ-OS operations from HOLD/SAFE to RUN.
+
+        Returns:
+            bool: True if resumed successfully
+        """
+        if not self._phi_os_enabled:
+            raise RuntimeError("Φ-OS integration not enabled")
+
+        return self.phi_os.resume_operations()
+
+    def get_phi_os_info(self) -> Dict[str, Any]:
+        """
+        Get comprehensive Φ-OS system information.
+
+        Returns:
+            dict: Complete system information
+        """
+        if not self._phi_os_enabled:
+            return {'error': 'Φ-OS integration not enabled'}
+
+        return self.phi_os.get_system_info()
