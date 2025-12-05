@@ -122,6 +122,39 @@ class MoralTriangle:
             # Linear scaling: 1.0 + (active/3) * 1.5
             return 1.0 + (active_count / 3) * 1.5
 
+    def _ensure_metric_defined(
+        self,
+        measure_token,
+        metric_name: str,
+        value: Any,
+        context: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """Define a metric on T10 if it doesn't already exist.
+
+        The Measure token requires metrics to be pre-declared. During automatic
+        moral-triangle cycles we create a minimal definition based on the
+        observed value so the cycle can proceed without manual setup.
+        """
+
+        if metric_name in getattr(measure_token, "_metrics", {}):
+            return
+
+        # Infer a coarse metric type from the value
+        if isinstance(value, (int, float)):
+            metric_type = "numeric"
+        elif isinstance(value, bool):
+            metric_type = "boolean"
+        elif isinstance(value, str):
+            metric_type = "text"
+        else:
+            metric_type = "object"
+
+        measure_token.define_metric(
+            metric_name=metric_name,
+            metric_type=metric_type,
+            ethical_value=(context or {}).get("ethical_value")
+        )
+
     def execute_cycle(
         self,
         monitored_event: Dict[str, Any]
@@ -165,6 +198,12 @@ class MoralTriangle:
             from .layer3_moral import MeasureToken
             if isinstance(t10, MeasureToken):
                 metric_name = monitored_event.get('state_name', 'unknown_metric')
+                self._ensure_metric_defined(
+                    measure_token=t10,
+                    metric_name=metric_name,
+                    value=monitored_event.get('value'),
+                    context=monitored_event
+                )
                 t10.measure(
                     metric_name=metric_name,
                     value=monitored_event.get('value'),
